@@ -1,6 +1,6 @@
 CC=gcc
 LEX=flex
-PROGRAM=ael
+PROGRAM=ael flex_only
 YACC=yacc
 YFLAGS=-d
 
@@ -21,6 +21,9 @@ lex.yy.c: ael.l
 
 ael: $(OBJS)
 	$(CC) $(OBJS) -o $@ -lfl
+
+flex_only: lex.yy.c 
+	$(CC) lex.yy.c -o lexael -lfl
 
 clean:; rm -f $(OBJS) core *~ \#* *.o $(PROGRAM) \
 	y.* lex.yy.* ael.tab.*

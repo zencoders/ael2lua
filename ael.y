@@ -62,9 +62,9 @@ objects:
     ;
 
 object:
-        context { printf("context"); }
-    |   macro { printf("macro"); }
-    |   globals { printf("globals"); }
+        context 
+    |   macro 
+    |   globals
     |   SEMICOLON
     ;
 
@@ -249,6 +249,9 @@ includedname: WORD
 
 includes: INCLUDES BRA includeslist KET
        | INCLUDES BRA KET
+       {
+            printf("\t includes block!\n");
+       }
        ;
 
 %%
@@ -263,7 +266,7 @@ main( argc, argv )
 char *argv[];
 {
     progname = argv[0];
-    printf("%s - Started",argv[0]);
+    printf("%s - Started \n",argv[0]);
     strcpy(format,"%g\n");
     yyparse();
 }
@@ -271,14 +274,7 @@ char *argv[];
 yyerror( s )
 char *s;
 {
-    warning( s , ( char * )0 );
+    fprintf( stderr, "ERROR: %s\n", s);
     yyparse();
 }
 
-warning( s , t )
-char *s , *t;
-{
-    fprintf( stderr ,"%s: %s\n" , progname , s );
-    if ( t )
-        fprintf( stderr , " %s\n" , t );
-}
