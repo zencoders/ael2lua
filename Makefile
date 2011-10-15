@@ -1,6 +1,6 @@
 CC=gcc
 LEX=flex
-PROGRAM=ael flex_only
+PROGRAM=ael
 YACC=yacc
 YFLAGS=-d
 
@@ -11,7 +11,7 @@ SRCS=ael.tab.c lex.yy.c
 all: $(PROGRAM)
 
 .c.o: $(SRCS)
-	$(CC) -c $*.c -o $@ -O
+	$(CC) -g -c $*.c -o $@ -O
 
 ael.tab.c: ael.y
 	bison $(YFLAGS) ael.y
@@ -20,10 +20,7 @@ lex.yy.c: ael.l
 	flex ael.l
 
 ael: $(OBJS)
-	$(CC) $(OBJS) -o $@ -lfl
-
-flex_only: lex.yy.c 
-	$(CC) lex.yy.c -o lexael -lfl
+	$(CC) -g $(OBJS) -o $@ -lfl
 
 clean:; rm -f $(OBJS) core *~ \#* *.o $(PROGRAM) \
 	y.* lex.yy.* ael.tab.*

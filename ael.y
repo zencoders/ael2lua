@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
-#define YYSTYPE char *
+#define YYSTYPE char*
 
 char mode[20];
 char state[20];
@@ -70,7 +70,7 @@ object:
 
 context:  
             CONTEXT WORD BRA elements KET
-        |   CONTEXT WORD BRA KET
+        |   CONTEXT WORD BRA KET { if($2 != 0x0) { printf("Word -> %s\n",$2); } else { printf("Empty word"); } }
         |   CONTEXT DEFAULT BRA elements KET
         |   CONTEXT DEFAULT BRA KET
         |   ABSTRACT CONTEXT WORD BRA elements KET
@@ -277,4 +277,8 @@ char *s;
     fprintf( stderr, "ERROR: %s\n", s);
     yyparse();
 }
+
+#ifndef yywrap
+int yywrap() { return 1; }
+#endif
 

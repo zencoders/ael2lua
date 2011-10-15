@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ael.tab.h"
-extern int yylval;
+char *p;
 %}
+
+WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
 
 %%
 =           { /*printf("EQ\n");*/ return EQ; }
@@ -45,10 +47,16 @@ extern int yylval;
 "return"    { /*printf("RETURN\n");*/return RETURN; }
 "continue"  { /*printf("CONTINUE\n");*/return CONTINUE; }
 "catch"     { /*printf("CATCH\n");*/return CATCH; }
-[-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*      { /*printf("WORD");*/return WORD; }
-\n                      /* ignore EOL */;
+
+{WORD}      { 
+        /*printf("WORD");*/
+        p=(char*) calloc(strlen(yytext)+1,sizeof(char));
+        strcpy(p, yytext);
+        yylval = p;
+        return WORD; 
+    }
+
+\n  { }
+[ \t]+  { }
 %%
 
-#ifndef yywrap
-int yywrap() { return 1; }
-#endif
