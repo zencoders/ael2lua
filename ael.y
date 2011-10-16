@@ -1,12 +1,33 @@
 %{
+#define YYSTYPE char*
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
-#define YYSTYPE char*
+#include <string>
+#include <sstream>
+#include <iostream>
+#include <FlexLexer.h>
 
-char mode[20];
-char state[20];
+using namespace std;
+
+yyFlexLexer lexer;
 char format[20];
+string box;
+
+int yylex(void)
+{
+    return lexer.yylex();
+}
+
+extern "C"
+{
+    int yyparse(void);
+    void yyerror(char*);
+
+    #ifndef yywrap
+    int yywrap() { return 1; }
+    #endif
+}
 %}
 
 %token EQ
@@ -54,23 +75,30 @@ char format[20];
 
 %%
 
-file: objects;
+file: objects { $$ = $1; cout << "#file" << endl; };
 
 objects: 
-        object
-    |   objects object
+        object { $$ = $1; cout << $$ << endl; }
+    |   objects object 
+        { 
+        }
     ;
 
 object:
-        context 
-    |   macro 
-    |   globals
-    |   SEMICOLON
+        context { $$ = $1; }
+    |   macro { $$ = $1; }
+    |   globals { $$ = $1; }
+    |   SEMICOLON { $$ = (char*)";"; }
     ;
 
 context:  
             CONTEXT WORD BRA elements KET
-        |   CONTEXT WORD BRA KET { if($2 != 0x0) { printf("Word -> %s\n",$2); } else { printf("Empty word"); } }
+        |   CONTEXT WORD BRA KET 
+            { 
+                stringstream ss;
+                ss << "extensions." << $2 << "{}" << endl;
+                $$ = (char*)(ss.str().c_str());  
+            }
         |   CONTEXT DEFAULT BRA elements KET
         |   CONTEXT DEFAULT BRA KET
         |   ABSTRACT CONTEXT WORD BRA elements KET
@@ -259,26 +287,23 @@ includes: INCLUDES BRA includeslist KET
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <FlexLexer.h>
 
 char *progname;
 
-main( argc, argv )
-char *argv[];
+
+int main(int argc, char* argv[] )
 {
     progname = argv[0];
     printf("%s - Started \n",argv[0]);
     strcpy(format,"%g\n");
     yyparse();
+    return 0;
 }
 
-yyerror( s )
-char *s;
+void yyerror( char* s )
 {
     fprintf( stderr, "ERROR: %s\n", s);
     yyparse();
 }
-
-#ifndef yywrap
-int yywrap() { return 1; }
-#endif
 

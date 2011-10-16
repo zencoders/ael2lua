@@ -1,8 +1,12 @@
+%option noyywrap
 %{
 #include <stdio.h>
 #include <stdlib.h>
 #include "ael.tab.h"
 char *p;
+
+extern int yywrap(void);
+
 %}
 
 WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
@@ -52,7 +56,7 @@ WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
         /*printf("WORD");*/
         p=(char*) calloc(strlen(yytext)+1,sizeof(char));
         strcpy(p, yytext);
-        yylval = p;
+        yylval = (YYSTYPE)p;
         return WORD; 
     }
 

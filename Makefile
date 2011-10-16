@@ -1,4 +1,4 @@
-CC=gcc
+CC=g++
 LEX=flex
 PROGRAM=ael
 YACC=yacc
@@ -6,7 +6,7 @@ YFLAGS=-d
 
 OBJS=ael.tab.o lex.yy.o
 
-SRCS=ael.tab.c lex.yy.c
+SRCS=ael.tab.c lex.yy.cc
 
 all: $(PROGRAM)
 
@@ -14,10 +14,10 @@ all: $(PROGRAM)
 	$(CC) -g -c $*.c -o $@ -O
 
 ael.tab.c: ael.y
-	bison $(YFLAGS) ael.y
+	bison --verbose --debug $(YFLAGS) ael.y
 
-lex.yy.c: ael.l
-	flex ael.l
+lex.yy.cc: ael.l
+	flex --c++ ael.l
 
 ael: $(OBJS)
 	$(CC) -g $(OBJS) -o $@ -lfl
@@ -25,17 +25,3 @@ ael: $(OBJS)
 clean:; rm -f $(OBJS) core *~ \#* *.o $(PROGRAM) \
 	y.* lex.yy.* ael.tab.*
 
-#ael: ael.o
-	#$(CC) -o ael ael.o -lfl
-
-#ael.o: ael.c y.tab.h
-	#$(CC) -c -o ael.o ael.c
-
-#ael.c: ael.l
-	#$(LEX) -t ael.l > ael.c
-
-#y.tab.h: ael.y
-	#$(YACC) -dvt ael.y
-
-#clean:
-	#rm ael.c y.output y.tab.c y.tab.h
