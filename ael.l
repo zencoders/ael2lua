@@ -3,13 +3,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ael.tab.h"
+
 char *p;
 
 extern int yywrap(void);
-
 %}
 
 WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
+VARNAME $\{[a-zA-Z][-a-zA-Z0-9]*\}
 
 %%
 =           { /*printf("EQ\n");*/ return EQ; }
@@ -17,6 +18,7 @@ WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
 \(          { /*printf("LPAREN\n");*/ return LPAREN; }
 \}          { /*printf("KET\n");*/ return KET; }
 \{          { /*printf("BRA\n");*/ return BRA; }
+"]"	    { /*printf("RSBRA\n");*/return RSBRA; }
 :           { /*printf("COLON\n");*/ return COLON; }
 ;           { /*printf("SEMICOLON\n");*/ return SEMICOLON; }
 ,           { /*printf("COMMA\n");*/ return COMMA; }
@@ -52,8 +54,33 @@ WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
 "continue"  { /*printf("CONTINUE\n");*/return CONTINUE; }
 "catch"     { /*printf("CATCH\n");*/return CATCH; }
 
+"${"	    { /*printf("VARBEGIN\n");*/return VARBEGIN;}
+"$["	    { /*printf("EXPRINIT\n");*/return EXPRINIT;}
+"!="	    { /*printf("NOTEQ\n");*/return NOTEQ; }
+">"	    { /*printf("GT\n");*/return GT; }
+"<"	    { /*printf("LT\n");*/return LT; }
+">="	    { /*printf("GTEQ\n");*/return GTEQ; }
+"<="	    { /*printf("LTEQ\n");*/return LTEQ; }
+"+"	    { /*printf("PLUS\n");*/return PLUS; }
+"-"	    { /*printf("MINUS\n");*/return MINUS; }
+"*"	    { /*printf("MULT\n");*/return MULT; }
+"/"	    { /*printf("DIV\n");*/return DIV; }
+"%"	    { /*printf("MOD\n");*/return MOD; }
+"!"         { /*printf("LOGNOT\n");*/return LOGNOT; }
+"=~"	    { /*printf("LIKEOP\n");*/return LIKEOP; }
+"?"	    { /*printf("CONDQUEST\n");*/return CONDQUEST; }
+
+{VARNAME}   {
+	    /*printf("VARNAME (%s)\n",yytext);*/
+	    p = (char*)calloc(strlen(yytext)+1,sizeof(char));
+	    strcpy(p,yytext);
+	    yylval = (YYSTYPE)p;
+	    return VARNAME;
+	    }
+
+
 {WORD}      { 
-        /*printf("WORD");*/
+        /*printf("WORD (%s)\n",yytext);*/
         p=(char*) calloc(strlen(yytext)+1,sizeof(char));
         strcpy(p, yytext);
         yylval = (YYSTYPE)p;

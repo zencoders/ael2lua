@@ -1,11 +1,16 @@
 %{
 #define YYSTYPE char*
+
+#define YYERROR_VERBOSE
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <fstream>
+
 #include <FlexLexer.h>
 
 using namespace std;
@@ -16,16 +21,17 @@ string box;
 
 int yylex(void)
 {
-    return lexer.yylex();
+	return lexer.yylex();
 }
 
 extern "C"
 {
     int yyparse(void);
-    void yyerror(char*);
+    void yyerror(string);
+    FILE* yyin;
 
     #ifndef yywrap
-    int yywrap() { return 1; }
+    int yywrap() { return 1; }    
     #endif
 }
 %}
@@ -72,6 +78,25 @@ extern "C"
 %token CATCH
 %token WORD
 %token COLLECTED_WORD
+
+%token VARBEGIN
+%token VARNAME
+%token EXPRINIT
+%token RSBRA
+%token NOTEQ
+%token GT
+%token LT
+%token GTEQ
+%token LTEQ
+%token PLUS
+%token MINUS
+%token MULT
+%token DIV
+%token MOD
+%token LOGNOT
+%token LIKEOP
+%token CONDQUEST
+
 
 %%
 
@@ -122,7 +147,7 @@ global_statements:      global_statement
                    |    global_statements global_statement
                    ;
 
-global_statement: WORD EQ COLLECTED_WORD SEMICOLON;
+global_statement: WORD EQ implicit_expr_stat SEMICOLON;
 
 
 arglist:    WORD
@@ -138,8 +163,8 @@ element:    extension
          |  switches
          |  eswitches
          |  ignorepat
-         |  WORD EQ  COLLECTED_WORD SEMICOLON
-         |  LOCAL WORD EQ  COLLECTED_WORD SEMICOLON
+         |  WORD EQ implicit_expr_stat SEMICOLON
+         |  LOCAL WORD EQ implicit_expr_stat SEMICOLON
          |  SEMICOLON
          ;
 
@@ -156,9 +181,9 @@ statements:     statement
             |   statements statement
             ;
 
-if_head: IF LPAREN  COLLECTED_WORD RPAREN;
+if_head: IF LPAREN implicit_expr_stat RPAREN;
 
-random_head: RANDOM LPAREN COLLECTED_WORD RPAREN;
+random_head: RANDOM LPAREN implicit_expr_stat RPAREN;
 
 ifTime_head:    IFTIME LPAREN word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
            |    IFTIME LPAREN WORD PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
@@ -169,22 +194,22 @@ word3_list: WORD
        |    WORD WORD WORD
        ;
 
-switch_head: SWITCH LPAREN COLLECTED_WORD RPAREN  BRA;
+switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA;
 
 
 statement: BRA statements KET
-       | WORD EQ  COLLECTED_WORD SEMICOLON
-       | LOCAL WORD EQ  COLLECTED_WORD SEMICOLON
+       | WORD EQ implicit_expr_stat SEMICOLON
+       | LOCAL WORD EQ implicit_expr_stat SEMICOLON
        | GOTO target SEMICOLON
        | JUMP jumptarget SEMICOLON
        | WORD COLON
-       | FOR LPAREN  COLLECTED_WORD SEMICOLON  COLLECTED_WORD SEMICOLON COLLECTED_WORD RPAREN statement
-       | WHILE LPAREN  COLLECTED_WORD RPAREN statement
+       | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
+       | WHILE LPAREN implicit_expr_stat RPAREN statement
        | switch_head KET
        | switch_head case_statements KET
        | AND macro_call SEMICOLON
        | application_call SEMICOLON
-       | application_call EQ  COLLECTED_WORD SEMICOLON
+       | application_call EQ implicit_expr_stat SEMICOLON
        | BREAK SEMICOLON
        | RETURN SEMICOLON
        | CONTINUE SEMICOLON
@@ -224,8 +249,8 @@ application_call: application_call_head eval_arglist RPAREN
        | application_call_head RPAREN
        ;
 
-eval_arglist:  COLLECTED_WORD
-       | eval_arglist COMMA  COLLECTED_WORD
+eval_arglist:  implicit_expr_stat
+       | eval_arglist COMMA implicit_expr_stat 
        | /* nothing */
        | eval_arglist COMMA  /* nothing */
        ;
@@ -282,6 +307,33 @@ includes: INCLUDES BRA includeslist KET
        }
        ;
 
+explicit_expr_stat : EXPRINIT implicit_expr_stat RSBRA ;
+implicit_expr_stat : base_expr ;
+base_expr: variable
+	| WORD
+	| operand_expr
+	| LPAREN operand_expr RPAREN
+	| explicit_expr_stat
+	;
+operand_expr : unary_expr
+	| binary_expr
+	| conditional_op
+	;
+binary_expr: base_expr binary_op base_expr;
+unary_expr: unary_op base_expr;
+conditional_op : base_expr CONDQUEST base_expr COLON base_expr ;
+binary_op: logical_binary_op
+	| arith_binary_op
+	;
+logical_binary_op : PIPE | AND | EQ | NOTEQ | LT | GT | GTEQ | LTEQ ;
+arith_binary_op : PLUS | MINUS | MULT | DIV | MOD ;
+unary_op : logical_unary_op
+	| arith_unary_op
+	;
+logical_unary_op : LOGNOT ;
+arith_unary_op : MINUS;
+variable: VARNAME ;
+
 %%
 
 #include <stdio.h>
@@ -291,19 +343,56 @@ includes: INCLUDES BRA includeslist KET
 
 char *progname;
 
+int yyparsefile(char const* filename)
+{
+	yyin = fopen(filename,"r");
+	if (!yyin)
+	{
+		exit(2);
+	}
+	yyparse();
+	if (fclose (yyin) != 0)
+	{
+		exit(3);
+	}
+	yyin = stdin;
+	return 0;
+}
 
 int main(int argc, char* argv[] )
 {
     progname = argv[0];
-    printf("%s - Started \n",argv[0]);
+    std::cout << progname <<" - Started" <<std::endl;
     strcpy(format,"%g\n");
+    std::istream* in_file = &std::cin;
+    std::ostream* out_file = &std::cout;
+    if (argc>1)
+    {
+    	in_file = new std::ifstream(argv[1]);
+	if (in_file->fail())
+	{
+		std::cerr << "Unable to open input file : " << argv[1] << std::endl;
+		in_file = &std::cin;		
+	}
+    }
+    if (argc>2)
+    {
+    	out_file = new std::ofstream(argv[2]);
+	if (out_file->fail())
+	{
+		std::cerr << "Unable to open output file : " << argv[2] << std::endl;
+		out_file = &std::cout;
+	}
+    }
+    lexer.switch_streams(in_file,out_file);
     yyparse();
     return 0;
 }
 
-void yyerror( char* s )
+void yyerror( string s )
 {
-    fprintf( stderr, "ERROR: %s\n", s);
+    //fprintf( stderr, "ERROR: %s\n", s);
+    std::cerr << "ERROR : " << s <<std::endl;
     yyparse();
 }
 
