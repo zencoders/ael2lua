@@ -1,7 +1,6 @@
 %{
 #define YYSTYPE char*
 
-#define YYERROR_VERBOSE
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -35,6 +34,8 @@ extern "C"
     #endif
 }
 %}
+
+%error-verbose
 
 %token EQ
 %token RPAREN
@@ -97,11 +98,12 @@ extern "C"
 %token LIKEOP
 %token CONDQUEST
 
+%token END 0 "end of file"
 
 %%
 
-file: objects { $$ = $1; cout << "#file" << endl; };
-
+file: objects { $$ = $1; cout << "#file" << endl; }
+    | END;
 objects: 
         object { $$ = $1; cout << $$ << endl; }
     |   objects object 
@@ -362,10 +364,12 @@ int yyparsefile(char const* filename)
 int main(int argc, char* argv[] )
 {
     progname = argv[0];
-    std::cout << progname <<" - Started" <<std::endl;
+    std::cout << progname <<" - ael2lua - Started" <<std::endl;
     strcpy(format,"%g\n");
     std::istream* in_file = &std::cin;
-    std::ostream* out_file = &std::cout;
+    std::ostream* out_file = &std::cout;    
+    bool interInput = true;
+    bool visualOutput = true;
     if (argc>1)
     {
     	in_file = new std::ifstream(argv[1]);
@@ -373,6 +377,9 @@ int main(int argc, char* argv[] )
 	{
 		std::cerr << "Unable to open input file : " << argv[1] << std::endl;
 		in_file = &std::cin;		
+	} else 
+	{
+		interInput = false;
 	}
     }
     if (argc>2)
@@ -382,7 +389,34 @@ int main(int argc, char* argv[] )
 	{
 		std::cerr << "Unable to open output file : " << argv[2] << std::endl;
 		out_file = &std::cout;
+	} else 
+	{
+		visualOutput = false;
 	}
+    }
+    std::cout <<"Input Stream : ";
+    if (interInput)
+    {
+    	std::cout <<"stdin (interactive mode)" <<std::endl;
+    } else
+    {
+    	std::cout<<argv[1]<<std::endl;
+    }
+    std::cout <<"Output Stream : ";
+    if (visualOutput)
+    {
+    	std::cout <<"stdout (visual output)" <<std::endl;
+    } else
+    {
+    	std::cout<<argv[2]<<std::endl;
+    }
+    std::cout<<"This aren't right ? Use program parameter : ./ael input_file output_file !"<<std::endl;
+    if (interInput)
+    {
+    	std::cout<<"Now you can write the code ..."<<std::endl;
+    } else 
+    {
+    	std::cout<<"Processing the file ..."<<std::endl;
     }
     lexer.switch_streams(in_file,out_file);
     yyparse();
