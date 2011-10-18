@@ -24,7 +24,7 @@
 
      500 => {
           Playback(demo-abouttotry);
-          Dial(IAX2/guest@misery.digium.com);
+          Dial(IAX2/guest_at_misery.digium.com);
           Playback(demo-nogo);
           goto s|instructions;
      }
