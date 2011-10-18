@@ -85,7 +85,7 @@ objects:
     ;
 
 object:
-        context { $$ = $1; }
+        context { $$ = (char*) $1; }
     |   macro { $$ = $1; }
     |   globals { $$ = $1; }
     |   SEMICOLON { $$ = (char*)";"; }
