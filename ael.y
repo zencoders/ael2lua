@@ -1,10 +1,10 @@
 %{
 #define YYSTYPE char*
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <cstring>
 #include <string>
 #include <sstream>
 #include <iostream>
@@ -21,6 +21,22 @@ string box;
 int yylex(void)
 {
 	return lexer.yylex();
+}
+
+char* alloc_string(char* d)
+{
+    char* s = (char*) calloc((strlen(d) + 1),sizeof(char));
+    strcpy(s, d);
+    return s;
+}
+
+char* grow_string(char* head, char* tail)
+{
+    char* s = (char*) calloc((strlen(head) + strlen(tail) + 2), sizeof(char));
+    strcpy(s,head);
+    strcat(s,tail);
+    free(head); //IT IS SUPPOSED head ALLOCATED USING MALLOC
+    return s;
 }
 
 extern "C"
@@ -102,37 +118,46 @@ extern "C"
 
 %%
 
-file: objects { $$ = $1; cout << "#file" << endl; }
+file: objects { $$ = $1; string s = string($$); free($$); cout << s << endl; }
     | END;
 objects: 
-        object { $$ = $1; cout << $$ << endl; }
-    |   objects object 
-        { 
-        }
+    objects object 
+    { 
+        $$ = grow_string($1, $2);
+        //cout << "<object-objects> ->" << &$1 << endl << $2 << endl;
+        //cout << "<stampo-tutto> ->" << $$ << endl;
+    } 
+    | object 
+    {
+        $$ = alloc_string($1);
+        //cout << "<object> ->" << &$$ << endl;
+    }
     ;
 
 object:
-        context { $$ = (char*) $1; }
+        context { $$ = (char*) $1; /*cout << "<object-context> ->" << $$ << endl;*/ }
     |   macro { $$ = $1; }
     |   globals { $$ = $1; }
     |   SEMICOLON { $$ = (char*)";"; }
     ;
 
 context:  
-            CONTEXT WORD BRA elements KET
-        |   CONTEXT WORD BRA KET 
-            { 
-                stringstream ss;
-                ss << "extensions." << $2 << "{}" << endl;
-                $$ = (char*)(ss.str().c_str());  
-            }
-        |   CONTEXT DEFAULT BRA elements KET
-        |   CONTEXT DEFAULT BRA KET
-        |   ABSTRACT CONTEXT WORD BRA elements KET
-        |   ABSTRACT CONTEXT WORD BRA KET
-        |   ABSTRACT CONTEXT DEFAULT BRA elements KET
-        |   ABSTRACT CONTEXT DEFAULT BRA KET
-        ;
+    CONTEXT WORD BRA elements KET
+    | CONTEXT WORD BRA KET 
+    { 
+        stringstream ss;
+        ss << "extensions." << $2 << "{}" << endl;
+        free($2);
+        $$ = (char*)(ss.str().data());
+    //    cout << "<context> ->" << $$ << endl;
+    }
+    |   CONTEXT DEFAULT BRA elements KET
+    |   CONTEXT DEFAULT BRA KET
+    |   ABSTRACT CONTEXT WORD BRA elements KET
+    |   ABSTRACT CONTEXT WORD BRA KET
+    |   ABSTRACT CONTEXT DEFAULT BRA elements KET
+    |   ABSTRACT CONTEXT DEFAULT BRA KET
+    ;
 
 macro:      MACRO WORD LPAREN arglist RPAREN BRA macro_statements KET
         |   MACRO WORD LPAREN arglist RPAREN BRA  KET
@@ -345,24 +370,11 @@ variable: VARNAME ;
 
 char *progname;
 
-int yyparsefile(char const* filename)
-{
-	yyin = fopen(filename,"r");
-	if (!yyin)
-	{
-		exit(2);
-	}
-	yyparse();
-	if (fclose (yyin) != 0)
-	{
-		exit(3);
-	}
-	yyin = stdin;
-	return 0;
-}
+extern int yydebug;
 
 int main(int argc, char* argv[] )
 {
+    //yydebug=1;
     progname = argv[0];
     std::cout << progname <<" - ael2lua - Started" <<std::endl;
     strcpy(format,"%g\n");
