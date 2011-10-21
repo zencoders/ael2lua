@@ -9,6 +9,7 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
+#include <set>
 
 #include <FlexLexer.h>
 
@@ -18,24 +19,47 @@ yyFlexLexer lexer;
 char format[20];
 string box;
 
+std::set<char*> garbage;
+
 int yylex(void)
 {
 	return lexer.yylex();
+}
+
+void destroy_string(char* p)
+{
+    std::set<char*>::iterator it = garbage.find(p);
+    if(it != garbage.end())
+    {
+        free(*it);
+        garbage.erase(it);
+    }
+}
+
+void recycle_garbage()
+{
+    set<char*>::iterator it;
+    for(it = garbage.begin(); it != garbage.end(); it++)
+    {
+        destroy_string((*it));
+    }
+    garbage.clear();
 }
 
 char* alloc_string(char* d)
 {
     char* s = (char*) calloc((strlen(d) + 1),sizeof(char));
     strcpy(s, d);
+    garbage.insert(s);
     return s;
 }
 
 char* grow_string(char* head, char* tail)
 {
     char* s = (char*) calloc((strlen(head) + strlen(tail) + 2), sizeof(char));
-    strcpy(s,head);
-    strcat(s,tail);
-    free(head); //IT IS SUPPOSED head ALLOCATED USING MALLOC
+    sprintf(s,"%s%s", head, tail);
+    destroy_string(head); //IT IS SUPPOSED head ALLOCATED USING MALLOC
+    garbage.insert(s);
     return s;
 }
 
@@ -118,7 +142,7 @@ extern "C"
 
 %%
 
-file: objects { $$ = $1; string s = string($$); free($$); cout << s << endl; }
+file: objects { $$ = $1; string s = string($$); recycle_garbage(); cout << s << endl; }
     | END;
 objects: 
     objects object 
@@ -135,24 +159,27 @@ objects:
     ;
 
 object:
-        context { $$ = (char*) $1; /*cout << "<object-context> ->" << $$ << endl;*/ }
+        context { $$ = $1; /*cout << "<object-context> ->" << $$ << endl;*/ }
     |   macro { $$ = $1; }
     |   globals { $$ = $1; }
-    |   SEMICOLON { $$ = (char*)";"; }
+    |   SEMICOLON { $$ = alloc_string((char*)";"); }
     ;
 
 context:  
     CONTEXT WORD BRA elements KET
     | CONTEXT WORD BRA KET 
     { 
-        stringstream ss;
+        stringstream ss; 
         ss << "extensions." << $2 << "{}" << endl;
+        $$ = alloc_string((char*)ss.str().data());
         free($2);
-        $$ = (char*)(ss.str().data());
     //    cout << "<context> ->" << $$ << endl;
     }
     |   CONTEXT DEFAULT BRA elements KET
     |   CONTEXT DEFAULT BRA KET
+    {
+        $$ = alloc_string((char*)"extensions.default{}");
+    }
     |   ABSTRACT CONTEXT WORD BRA elements KET
     |   ABSTRACT CONTEXT WORD BRA KET
     |   ABSTRACT CONTEXT DEFAULT BRA elements KET
