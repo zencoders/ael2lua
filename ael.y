@@ -172,6 +172,7 @@ objects:
     objects object 
     { 
         $$ = grow_string($1, $2);
+        destroy_string($2);
     } 
     | object 
     {
@@ -233,6 +234,7 @@ arglist:    word { $$ = $1; }
             stringstream ss;
             ss << ", " << $3;
             $$=grow_string($1,(char*)ss.str().c_str());
+            destroy_string($3);
          }
          ;
 
@@ -266,6 +268,8 @@ extension: word ARROW statement
             stringstream ss;
             ss <<"[\""<<$1<<"\"] = "<<$3;            
             $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
         }
         |    REGEXTEN word ARROW statement
         |    HINT LPAREN word3_list RPAREN word ARROW statement
@@ -279,6 +283,7 @@ statements: statement
         |   statements statement
         {
             $$ = grow_string($1,$2);
+            destroy_string($2);
         }
         ;
 
@@ -338,6 +343,8 @@ statement:  BRA statements KET
             stringstream ss;
             ss << convertAppcall($1)<<" = " << $3 <<";"<<endl;
             $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
         }
         | BREAK SEMICOLON
         {
@@ -386,6 +393,7 @@ application_call: application_call_head eval_arglist RPAREN
             ss << $1 << $2 <<")";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
+            destroy_string($2);
         }
         | application_call_head RPAREN
         {
@@ -400,6 +408,7 @@ eval_arglist:  implicit_expr_stat
             ss << "," << $3;            
             $$ = grow_string($1,(char*)ss.str().data());
             destroy_string($1);
+            destroy_string($3);
         }
         | /* nothing */
         | eval_arglist COMMA  /* nothing */
