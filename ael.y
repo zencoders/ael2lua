@@ -172,13 +172,10 @@ objects:
     objects object 
     { 
         $$ = grow_string($1, $2);
-        //cout << "<object-objects> ->" << &$1 << endl << $2 << endl;
-        //cout << "<stampo-tutto> ->" << $$ << endl;
     } 
     | object 
     {
         $$ = alloc_string($1);
-        //cout << "<object> ->" << &$$ << endl;
     }
     ;
 
@@ -197,7 +194,6 @@ context:
     | CONTEXT word BRA KET 
     { 
         $$ = handleContext($2,(char*)"");
-    //    cout << "<context> ->" << $$ << endl;
     }
     |   CONTEXT DEFAULT BRA elements KET
     {
@@ -289,9 +285,24 @@ ifTime_head:    IFTIME LPAREN word3_list COLON word3_list COLON word3_list PIPE 
            |    IFTIME LPAREN word PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
            ;
 
-word3_list: word
-       |    word word
+word3_list: word { $$ = $1; }
+       |    word word 
+       {
+            stringstream ss;
+            ss << $1 << " " << $2;
+            $$ = alloc_string((char*)ss.str().c_str());
+            destroy_string($1);
+            destroy_string($2);
+       }
        |    word word word
+       {
+            stringstream ss;
+            ss << $1 << " " << $2 << " " << $3;
+            $$ = alloc_string((char*)ss.str().c_str());
+            destroy_string($1);
+            destroy_string($2);
+            destroy_string($3);
+       }
        ;
 
 switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA;
