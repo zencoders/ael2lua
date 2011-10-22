@@ -190,36 +190,33 @@ object:
     ;
 
 context:  
-    CONTEXT WORD BRA elements KET
+    CONTEXT word BRA elements KET
     {
         $$ = handleContext($2,$4);
-        free($2);
     }
-    | CONTEXT WORD BRA KET 
+    | CONTEXT word BRA KET 
     { 
         $$ = handleContext($2,(char*)"");
-        free($2);
     //    cout << "<context> ->" << $$ << endl;
     }
     |   CONTEXT DEFAULT BRA elements KET
     {
         $$ = handleContext((char*)"default",$4);    
-        //free($4);
     }
     |   CONTEXT DEFAULT BRA KET
     {
         $$ = handleContext((char*)"default",(char*)"");
     }
-    |   ABSTRACT CONTEXT WORD BRA elements KET
-    |   ABSTRACT CONTEXT WORD BRA KET
+    |   ABSTRACT CONTEXT word BRA elements KET
+    |   ABSTRACT CONTEXT word BRA KET
     |   ABSTRACT CONTEXT DEFAULT BRA elements KET
     |   ABSTRACT CONTEXT DEFAULT BRA KET
     ;
 
-macro:      MACRO WORD LPAREN arglist RPAREN BRA macro_statements KET
-        |   MACRO WORD LPAREN arglist RPAREN BRA  KET
-        |   MACRO WORD LPAREN RPAREN BRA macro_statements KET
-        |   MACRO WORD LPAREN RPAREN BRA  KET
+macro:      MACRO word LPAREN arglist RPAREN BRA macro_statements KET
+        |   MACRO word LPAREN arglist RPAREN BRA  KET
+        |   MACRO word LPAREN RPAREN BRA macro_statements KET
+        |   MACRO word LPAREN RPAREN BRA  KET
         ;
 
 
@@ -231,11 +228,11 @@ global_statements:      global_statement
                    |    global_statements global_statement
                    ;
 
-global_statement: WORD EQ implicit_expr_stat SEMICOLON;
+global_statement: word EQ implicit_expr_stat SEMICOLON;
 
 
-arglist:    WORD
-         |  arglist COMMA WORD
+arglist:    word
+         |  arglist COMMA word
          ;
 
 elements:   element
@@ -255,24 +252,23 @@ element:    extension
         |  switches
         |  eswitches
         |  ignorepat
-        |  WORD EQ implicit_expr_stat SEMICOLON
-        |  LOCAL WORD EQ implicit_expr_stat SEMICOLON
+        |  word EQ implicit_expr_stat SEMICOLON
+        |  LOCAL word EQ implicit_expr_stat SEMICOLON
         |  SEMICOLON { $$ = alloc_string((char*)";"); }
         ;
 
-ignorepat: IGNOREPAT ARROW WORD SEMICOLON;
+ignorepat: IGNOREPAT ARROW word SEMICOLON;
 
 
-extension: WORD ARROW statement
+extension: word ARROW statement
         {
             stringstream ss;
             ss <<"[\""<<$1<<"\"] = "<<$3;            
             $$ = alloc_string((char*)ss.str().data());
-            free($1);
         }
-        |    REGEXTEN WORD ARROW statement
-        |    HINT LPAREN word3_list RPAREN WORD ARROW statement
-        |    REGEXTEN HINT LPAREN word3_list RPAREN WORD ARROW statement
+        |    REGEXTEN word ARROW statement
+        |    HINT LPAREN word3_list RPAREN word ARROW statement
+        |    REGEXTEN HINT LPAREN word3_list RPAREN word ARROW statement
         ;
 
 statements: statement
@@ -290,12 +286,12 @@ if_head: IF LPAREN implicit_expr_stat RPAREN;
 random_head: RANDOM LPAREN implicit_expr_stat RPAREN;
 
 ifTime_head:    IFTIME LPAREN word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
-           |    IFTIME LPAREN WORD PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
+           |    IFTIME LPAREN word PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
            ;
 
-word3_list: WORD
-       |    WORD WORD
-       |    WORD WORD WORD
+word3_list: word
+       |    word word
+       |    word word word
        ;
 
 switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA;
@@ -307,11 +303,11 @@ statement:  BRA statements KET
             ss << "function()"<<endl<<$2<<"end;";
             $$ = alloc_string((char*)ss.str().data());
         }
-        | WORD EQ implicit_expr_stat SEMICOLON
-        | LOCAL WORD EQ implicit_expr_stat SEMICOLON
+        | word EQ implicit_expr_stat SEMICOLON
+        | LOCAL word EQ implicit_expr_stat SEMICOLON
         | GOTO target SEMICOLON
         | JUMP jumptarget SEMICOLON
-        | WORD COLON
+        | word COLON
         | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
         | WHILE LPAREN implicit_expr_stat RPAREN statement
         | switch_head KET
@@ -345,28 +341,28 @@ statement:  BRA statements KET
         | SEMICOLON
        ;
 
-target: WORD
-       | WORD PIPE WORD
-       | WORD PIPE WORD PIPE WORD
-       | DEFAULT PIPE WORD PIPE WORD
-       | WORD COMMA WORD
-       | WORD COMMA WORD COMMA WORD
-       | DEFAULT COMMA WORD COMMA WORD
+target: word
+       | word PIPE word
+       | word PIPE word PIPE word
+       | DEFAULT PIPE word PIPE word
+       | word COMMA word
+       | word COMMA word COMMA word
+       | DEFAULT COMMA word COMMA word
        ;
 
-jumptarget: WORD
-               | WORD COMMA WORD
-               | WORD COMMA WORD AT WORD
-               | WORD AT WORD
-               | WORD COMMA WORD AT DEFAULT
-               | WORD AT DEFAULT
+jumptarget: word
+               | word COMMA word
+               | word COMMA word AT word
+               | word AT word
+               | word COMMA word AT DEFAULT
+               | word AT DEFAULT
                ;
 
-macro_call: WORD LPAREN eval_arglist RPAREN
-        | WORD LPAREN RPAREN
+macro_call: word LPAREN eval_arglist RPAREN
+        | word LPAREN RPAREN
         ;
 
-application_call_head: WORD  LPAREN { $$ = grow_string($1,(char*)"("); };
+application_call_head: word  LPAREN { $$ = grow_string($1,(char*)"("); };
 
 application_call: application_call_head eval_arglist RPAREN
         {
@@ -401,12 +397,12 @@ case_statements: case_statement
        ;
 
 
-case_statement: CASE WORD COLON statements
+case_statement: CASE word COLON statements
        | DEFAULT COLON statements
-       | PATTERN WORD COLON statements
-       | CASE WORD COLON
+       | PATTERN word COLON statements
+       | CASE word COLON
        | DEFAULT COLON
-       | PATTERN WORD COLON
+       | PATTERN word COLON
        ;
 
 macro_statements: macro_statement
@@ -414,7 +410,7 @@ macro_statements: macro_statement
        ;
 
 macro_statement: statement
-       | CATCH WORD BRA statements KET
+       | CATCH word BRA statements KET
        ;
 
 switches: SWITCHES BRA switchlist KET
@@ -425,19 +421,19 @@ eswitches: ESWITCHES BRA switchlist KET
        | ESWITCHES BRA  KET
        ;
 
-switchlist: WORD SEMICOLON
-       | switchlist WORD SEMICOLON
+switchlist: word SEMICOLON
+       | switchlist word SEMICOLON
        ;
 
 includeslist: includedname SEMICOLON
        | includedname PIPE word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
-       | includedname PIPE WORD PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
+       | includedname PIPE word PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
        | includeslist includedname SEMICOLON
        | includeslist includedname PIPE word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
-       | includeslist includedname PIPE WORD PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
+       | includeslist includedname PIPE word PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
        ;
 
-includedname: WORD
+includedname: word
         | DEFAULT
         ;
 
@@ -451,7 +447,7 @@ includes: INCLUDES BRA includeslist KET
 explicit_expr_stat : EXPRINIT implicit_expr_stat RSBRA ;
 implicit_expr_stat : base_expr ;
 base_expr: variable
-    | WORD
+    | word
     | operand_expr
     | LPAREN operand_expr RPAREN
     | explicit_expr_stat
@@ -466,14 +462,28 @@ conditional_op : base_expr CONDQUEST base_expr COLON base_expr ;
 binary_op: logical_binary_op
     | arith_binary_op
     ;
-logical_binary_op : PIPE | AND | EQ | NOTEQ | LT | GT | GTEQ | LTEQ ;
-arith_binary_op : PLUS | MINUS | MULT | DIV | MOD ;
-unary_op : logical_unary_op
-    | arith_unary_op
+logical_binary_op : PIPE { $$ = alloc_string((char*)"|"); }
+                  | AND { $$ = alloc_string((char*)"&"); }
+                  | EQ { $$ = alloc_string((char*)"="); }
+                  | NOTEQ { $$ = alloc_string((char*)"!="); }
+                  | LT { $$ = alloc_string((char*)"<"); }
+                  | GT { $$ = alloc_string((char*)">"); }
+                  | GTEQ { $$ = alloc_string((char*)">="); }
+                  | LTEQ { $$ = alloc_string((char*)"<="); }
+                  ;
+arith_binary_op : PLUS { $$ = alloc_string((char*)"+"); }
+                | MINUS { $$ = alloc_string((char*)"-"); }
+                | MULT { $$ = alloc_string((char*)"*"); }
+                | DIV { $$ = alloc_string((char*)"/"); }
+                | MOD { $$ = alloc_string((char*)"%"); }
+                ;
+unary_op : logical_unary_op { $$ = $1; }
+    | arith_unary_op { $$ = $1; }
     ;
-logical_unary_op : LOGNOT ;
-arith_unary_op : MINUS;
-variable: VARNAME ;
+logical_unary_op : LOGNOT { $$ = alloc_string((char*) "!"); };
+arith_unary_op : MINUS { $$ = alloc_string((char*) "-"); };
+variable: VARNAME { $$ = alloc_string($1); free($1); };
+word: WORD { $$ = alloc_string($1); free($1); };
 
 %%
 
