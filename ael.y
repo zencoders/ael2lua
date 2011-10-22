@@ -473,6 +473,11 @@ explicit_expr_stat : EXPRINIT implicit_expr_stat RSBRA ;
 implicit_expr_stat : base_expr ;
 base_expr: variable
     | word
+    {
+        stringstream ss;
+        ss << "\""<<$1<<"\"";
+        $$ = alloc_string((char*)ss.str().data());
+    }
     | operand_expr
     | LPAREN operand_expr RPAREN
     | explicit_expr_stat

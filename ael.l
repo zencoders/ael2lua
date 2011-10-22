@@ -10,7 +10,7 @@ extern int yywrap(void);
 %}
 
 WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
-VARNAME $\{[a-zA-Z][-a-zA-Z0-9]*\}
+VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 
 %%
 =           { /*printf("EQ\n");*/ return EQ; }
