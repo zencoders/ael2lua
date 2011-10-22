@@ -227,8 +227,13 @@ global_statements:      global_statement
 global_statement: word EQ implicit_expr_stat SEMICOLON;
 
 
-arglist:    word
-         |  arglist COMMA word
+arglist:    word { $$ = $1; }
+         |  arglist COMMA word 
+         { 
+            stringstream ss;
+            ss << ", " << $3;
+            $$=grow_string($1,(char*)ss.str().c_str());
+         }
          ;
 
 elements:   element
