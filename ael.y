@@ -10,15 +10,84 @@
 #include <iostream>
 #include <fstream>
 #include <set>
+#include <stack>
 
 #include <FlexLexer.h>
 
 using namespace std;
 
+char* alloc_string(char*);
+
+typedef struct {
+    char* value;
+    bool typePattern;
+    bool typeCase;
+} CaseStat;
+
+class SwitchStatementState
+{
+    public:
+    bool initialized;    
+    bool dandlingDefault;
+    std::stack<CaseStat> sstack;
+    SwitchStatementState()
+    {
+        dandlingDefault=0x0;
+        initialized=false;
+    }
+    char* getCompleteText(char* statements)
+    {
+        stringstream ss;
+        int num = this->sstack.size();
+        if (num>0)
+        {
+            if (this->initialized) {
+               ss << "else";
+            } else {
+               this->initialized=true;
+            }
+            ss<<"if ";
+            bool c_s_first=true;
+            stringstream condStream;
+            while(!this->sstack.empty())
+            {
+                if(!c_s_first)
+                {
+                    condStream << " or ";
+                } else 
+                {
+                    c_s_first=false;
+                }
+                if (this->sstack.top().typeCase)
+                {
+                    condStream<<"( switch_var == "<<this->sstack.top().value<<")";
+                } else if (this->sstack.top().typePattern)                
+                {
+                    condStream<<"( string.match(switch_var,\""<<this->sstack.top().value<<"\") ~= nil )";
+                }
+                this->sstack.pop();
+            }
+            if (num>1)
+            {
+                ss <<"("<< condStream.str()<<")";
+            } else {
+                ss << condStream.str();
+            }
+            ss<<" then"<<endl<<statements;
+        }
+        if (dandlingDefault)
+        {
+            ss<<"else "<<endl<<statements;
+        }
+        return alloc_string((char*)ss.str().data());
+    }
+};
+
 yyFlexLexer lexer;
 char format[20];
 string box;
 bool luaExtAllocated=false;
+std::stack<SwitchStatementState> switchStack;
 
 std::set<char*> garbage;
 
@@ -344,7 +413,14 @@ word3_list: word { $$ = $1; }
        }
        ;
 
-switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA;
+switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA
+        {
+            stringstream ss;
+            ss<<"do"<<endl<<"local switch_var = "<<$3<<endl;
+            $$ = alloc_string((char*)ss.str().data());            
+            switchStack.push(SwitchStatementState());
+        }
+        ;
 
 
 statement:  BRA statements KET
@@ -361,7 +437,17 @@ statement:  BRA statements KET
         | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
         | WHILE LPAREN implicit_expr_stat RPAREN statement
         | switch_head KET
+        {
+            $$ = grow_string($1,(char*)"end\n");
+        }
         | switch_head case_statements KET
+        {
+            stringstream ss;           
+            ss << $1 << $2 <<"end"<<endl<<"end"<<endl;
+            $$ = alloc_string((char*)ss.str().data());                                           
+            //destroy_string($1);
+            switchStack.pop();
+        }
         | AND macro_call SEMICOLON
         | application_call SEMICOLON
         {
@@ -377,7 +463,14 @@ statement:  BRA statements KET
         }
         | BREAK SEMICOLON
         {
-            $$ = alloc_string((char*)"break;\n");
+            if (switchStack.empty()) //useless in break statement
+            {
+                $$ = alloc_string((char*)"break;\n");
+            } else            
+            {
+                $$ = alloc_string((char*)"");
+                //cerr << "Break Found at "<<@$.first_line <<":"<<@$.first_column <<". Switch-case statement are converted to if-elseif chains so break becames useless"<<endl;
+            }
         }
         | RETURN SEMICOLON
         {
@@ -445,17 +538,67 @@ eval_arglist:  implicit_expr_stat
         ;
 
 case_statements: case_statement
-       | case_statements case_statement
-       ;
+        {
+            $$ = alloc_string($1);
+            destroy_string($1);
+        }
+        | case_statements case_statement
+        {
+            $$ = grow_string($1,$2);
+            destroy_string($2);
+        }
+        ;
 
 
 case_statement: CASE word COLON statements
-       | DEFAULT COLON statements
-       | PATTERN word COLON statements
-       | CASE word COLON
-       | DEFAULT COLON
-       | PATTERN word COLON
-       ;
+        {
+            CaseStat cs;
+            cs.value=alloc_string($2);
+            cs.typeCase=true;
+            cs.typePattern=false;
+            switchStack.top().sstack.push(cs);            
+            $$ = alloc_string(switchStack.top().getCompleteText($4));
+            //destroy_string($2);
+        }
+        | DEFAULT COLON statements
+        {
+            switchStack.top().dandlingDefault=true;            
+            $$ = alloc_string(switchStack.top().getCompleteText($3));
+        }
+        | PATTERN word COLON statements        
+        {   
+            CaseStat cs;
+            cs.value=alloc_string($2);
+            cs.typeCase=false;
+            cs.typePattern=true;
+            switchStack.top().sstack.push(cs);
+            $$ = alloc_string(switchStack.top().getCompleteText($4));
+            //destroy_string($2);
+        }
+        | CASE word COLON
+        {
+            $$ = (char*)"";
+            CaseStat cs;
+            cs.value=alloc_string($2);
+            cs.typeCase=true;
+            cs.typePattern=false;
+            switchStack.top().sstack.push(cs);
+        }
+        | DEFAULT COLON
+        {
+            $$ = (char*)"";
+            switchStack.top().dandlingDefault=true;            
+        }
+        | PATTERN word COLON
+        {
+            $$ = (char*)"";
+            CaseStat cs;
+            cs.value=alloc_string($2);
+            cs.typeCase=false;
+            cs.typePattern=true;
+            switchStack.top().sstack.push(cs);
+        }
+        ;
 
 macro_statements:   macro_statement
         {
