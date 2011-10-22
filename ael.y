@@ -10,6 +10,10 @@
 #include <iostream>
 #include <fstream>
 #include <set>
+#include <vector>
+#include <map>
+#include <algorithm>
+#include <iterator>
 
 #include <FlexLexer.h>
 
@@ -19,8 +23,11 @@ yyFlexLexer lexer;
 char format[20];
 string box;
 bool luaExtAllocated=false;
+bool luaHintsAllocated=false;
 
 std::set<char*> garbage;
+string last_context;
+std::vector<std::string> hints;
 
 int yylex(void)
 {
@@ -81,13 +88,38 @@ char* handleContext(char* name,char* content)
         luaExtAllocated = true;
         ss << "extensions = {}"<<endl;
     }
-        ss << "extensions." << name << " = "<<endl<<"{"<<endl;
+    if(!luaHintsAllocated && hints.size())
+    {
+        luaHintsAllocated = true;
+        ss << "hints = {}" << endl;
+    }
+    ss << "extensions." << name << " = "<<endl<<"{"<<endl;
     if (strlen(content)>0)
     {
         ss<<content<<endl;
     }
     ss<<"}" << endl<<endl;
+    if(hints.size())
+    {
+        ss << "hints." << name << " = "<<endl<<"{"<<endl;
+        for(int i = 0; i < hints.size(); i++)
+        {
+            ss << hints[i] << endl;
+        }
+        ss << "}" << endl << endl;
+    }
+    hints.clear();
     return alloc_string((char*)ss.str().data());
+}
+
+vector<string> string_split(const string& s)
+{
+    vector<string> to_ret;
+    istringstream iss(s);
+    copy(istream_iterator<string>(iss),
+        istream_iterator<string>(),
+        back_inserter<vector<string> >(to_ret));
+    return to_ret;
 }
 
 extern "C"
@@ -146,7 +178,6 @@ extern "C"
 %token CATCH
 %token WORD
 %token COLLECTED_WORD
-
 %token VARBEGIN
 %token VARNAME
 %token EXPRINIT
@@ -184,8 +215,8 @@ objects:
     ;
 
 object:
-        context { $$ = $1; /*cout << "<object-context> ->" << $$ << endl;*/ }
-    |   macro { $$ = $1; /*cout << "<object-macro>\n"<< &$$ <<"\b</object-macro>\n";*/} 
+        context { $$ = $1; }
+    |   macro { $$ = $1; } 
     |   globals { $$ = $1; }
     |   SEMICOLON { $$ = alloc_string((char*)";"); }
     ;
@@ -193,18 +224,22 @@ object:
 context:  
     CONTEXT word BRA elements KET
     {
+        last_context = $2;
         $$ = handleContext($2,$4);
     }
     | CONTEXT word BRA KET 
     { 
+        last_context = $2;
         $$ = handleContext($2,(char*)"");
     }
     |   CONTEXT DEFAULT BRA elements KET
     {
+        last_context = "default";
         $$ = handleContext((char*)"default",$4);    
     }
     |   CONTEXT DEFAULT BRA KET
     {
+        last_context = "default";
         $$ = handleContext((char*)"default",(char*)"");
     }
     |   ABSTRACT CONTEXT word BRA elements KET
@@ -295,8 +330,43 @@ extension: word ARROW statement
             destroy_string($3);
         }
         |    REGEXTEN word ARROW statement
+        {
+            stringstream ss;
+            ss <<"[\""<<$2<<"\"] = "<<$4;            
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($2);
+            destroy_string($4);
+        }
         |    HINT LPAREN word3_list RPAREN word ARROW statement
+        {
+            stringstream ss;
+            vector<string> r = string_split($3);
+            for(int i = 0; i < r.size(); i++)
+            {
+                ss << "[\""<<$5<<"\"] = " << "\"" << r[i] << "\"" << endl;
+            }
+            ss << "[\"" << $5 << "\"] = " << $7;
+            $$ = (char*) "";
+            hints.push_back(alloc_string((char*)ss.str().data()));
+            destroy_string($3);
+            destroy_string($5);
+            destroy_string($7);
+        }
         |    REGEXTEN HINT LPAREN word3_list RPAREN word ARROW statement
+        {
+            stringstream ss;
+            vector<string> r = string_split($4);
+            for(int i = 0; i < r.size(); i++)
+            {
+                ss << "[\""<<$6<<"\"] = " << "\"" << r[i] << "\"" << endl;
+            }
+            ss << "[\"" << $6 << "\"] = " << $8;
+            $$ = (char*)"";
+            hints.push_back(alloc_string((char*)ss.str().data()));
+            destroy_string($4);
+            destroy_string($6);
+            destroy_string($8);
+        }
         ;
 
 statements: statement
@@ -370,7 +440,12 @@ statement:  BRA statements KET
         }
         | application_call EQ implicit_expr_stat SEMICOLON
         {
-            // LA CONVERSIONE E' UNA SEMPLICE ASSEGNAZIONE DI VARIABILE
+            stringstream ss;
+            string ac = string($1).substr(4,strlen($1)-4);
+            ss << "channel." << ac << ":set(" << $3 << ")";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
         }
         | BREAK SEMICOLON
         {
