@@ -516,13 +516,13 @@ application_call_head: word  LPAREN
 application_call: application_call_head eval_arglist RPAREN
         {
             stringstream ss;
-            ss << $1 << $2 <<")";
+            ss << $1 << $2 <<")"<<endl;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
         }
         | application_call_head RPAREN
         {
-            $$ = grow_string($1,(char*)")");
+            $$ = grow_string($1,(char*)")\n");
         }
         ;
 
