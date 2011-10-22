@@ -81,12 +81,6 @@ char* handleContext(char* name,char* content)
     return alloc_string((char*)ss.str().data());
 }
 
-char* convertAppcall(char* appcall) 
-{
-    //TODO
-    return appcall;
-}
-
 extern "C"
 {
     int yyparse(void);
@@ -331,28 +325,31 @@ statement:  BRA statements KET
         | word COLON
         | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
         | WHILE LPAREN implicit_expr_stat RPAREN statement
+        {
+            stringstream ss;
+            ss << "while " << $3 << "do" << endl << $5 << endl << "end";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($3);
+            destroy_string($5);
+        }
         | switch_head KET
         | switch_head case_statements KET
         | AND macro_call SEMICOLON
         | application_call SEMICOLON
         {
-            $$ = grow_string(convertAppcall($1),(char*)";\n");
+            $$ = $1;
         }
         | application_call EQ implicit_expr_stat SEMICOLON
         {
-            stringstream ss;
-            ss << convertAppcall($1)<<" = " << $3 <<";"<<endl;
-            $$ = alloc_string((char*)ss.str().data());
-            destroy_string($1);
-            destroy_string($3);
+            // LA CONVERSIONE E' UNA SEMPLICE ASSEGNAZIONE DI VARIABILE
         }
         | BREAK SEMICOLON
         {
-            $$ = alloc_string((char*)"break;\n");
+            $$ = alloc_string((char*)"break\n");
         }
         | RETURN SEMICOLON
         {
-            $$ = alloc_string((char*)"return;\n");
+            $$ = alloc_string((char*)"return\n");
         }
         | CONTINUE SEMICOLON
         | random_head statement
@@ -385,7 +382,14 @@ macro_call: word LPAREN eval_arglist RPAREN
         | word LPAREN RPAREN
         ;
 
-application_call_head: word  LPAREN { $$ = grow_string($1,(char*)"("); };
+application_call_head: word  LPAREN 
+                    { 
+                        stringstream ss;
+                        $1[0] = tolower($1[0]);
+                        ss << "app." << $1 << "(";
+                        $$ = alloc_string((char*)ss.str().data());
+                        destroy_string($1);
+                    };
 
 application_call: application_call_head eval_arglist RPAREN
         {
@@ -402,7 +406,7 @@ application_call: application_call_head eval_arglist RPAREN
         ;
 
 eval_arglist:  implicit_expr_stat
-        | eval_arglist COMMA implicit_expr_stat        
+        | eval_arglist COMMA implicit_expr_stat
         {
             stringstream ss;
             ss << "," << $3;            
@@ -411,6 +415,9 @@ eval_arglist:  implicit_expr_stat
             destroy_string($3);
         }
         | /* nothing */
+        {
+            $$ = alloc_string((char*)"nil");
+        }
         | eval_arglist COMMA  /* nothing */
         {
             $$ = grow_string($1,(char*)",");
