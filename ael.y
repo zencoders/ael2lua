@@ -18,12 +18,13 @@ using namespace std;
 yyFlexLexer lexer;
 char format[20];
 string box;
+bool luaExtAllocated=false;
 
 std::set<char*> garbage;
 
 int yylex(void)
 {
-	return lexer.yylex();
+    return lexer.yylex();
 }
 
 void destroy_string(char* p)
@@ -61,6 +62,29 @@ char* grow_string(char* head, char* tail)
     destroy_string(head); //IT IS SUPPOSED head ALLOCATED USING MALLOC
     garbage.insert(s);
     return s;
+}
+
+char* handleContext(char* name,char* content)
+{
+    stringstream ss; 
+    if (!luaExtAllocated)
+    {
+        luaExtAllocated = true;
+        ss << "extensions = {}"<<endl;
+    }
+        ss << "extensions." << name << " = "<<endl<<"{"<<endl;
+    if (strlen(content)>0)
+    {
+        ss<<content<<endl;
+    }
+    ss<<"}" << endl;
+    return alloc_string((char*)ss.str().data());
+}
+
+char* convertAppcall(char* appcall) 
+{
+    //TODO
+    return appcall;
 }
 
 extern "C"
@@ -142,7 +166,7 @@ extern "C"
 
 %%
 
-file: objects { $$ = $1; string s = string($$); recycle_garbage(); cout << s << endl; }
+file: objects { $$ = $1; string s = string($$); recycle_garbage(); cout << s; }
     | END;
 objects: 
     objects object 
@@ -167,18 +191,24 @@ object:
 
 context:  
     CONTEXT WORD BRA elements KET
+    {
+        $$ = handleContext($2,$4);
+        free($2);
+    }
     | CONTEXT WORD BRA KET 
     { 
-        stringstream ss; 
-        ss << "extensions." << $2 << "{}" << endl;
-        $$ = alloc_string((char*)ss.str().data());
+        $$ = handleContext($2,(char*)"");
         free($2);
     //    cout << "<context> ->" << $$ << endl;
     }
     |   CONTEXT DEFAULT BRA elements KET
+    {
+        $$ = handleContext((char*)"default",$4);    
+        //free($4);
+    }
     |   CONTEXT DEFAULT BRA KET
     {
-        $$ = alloc_string((char*)"extensions.default{}");
+        $$ = handleContext((char*)"default",(char*)"");
     }
     |   ABSTRACT CONTEXT WORD BRA elements KET
     |   ABSTRACT CONTEXT WORD BRA KET
@@ -209,31 +239,51 @@ arglist:    WORD
          ;
 
 elements:   element
-         |  elements element
-         ;
-
+        {
+            $$ = alloc_string($1);
+        }
+        |  elements element
+        {
+            $$=grow_string($1,$2);
+        }           
+        ;
 element:    extension
-         |  includes
-         |  switches
-         |  eswitches
-         |  ignorepat
-         |  WORD EQ implicit_expr_stat SEMICOLON
-         |  LOCAL WORD EQ implicit_expr_stat SEMICOLON
-         |  SEMICOLON
-         ;
+        {
+            $$ = $1;
+        }
+        |  includes
+        |  switches
+        |  eswitches
+        |  ignorepat
+        |  WORD EQ implicit_expr_stat SEMICOLON
+        |  LOCAL WORD EQ implicit_expr_stat SEMICOLON
+        |  SEMICOLON { $$ = alloc_string((char*)";"); }
+        ;
 
 ignorepat: IGNOREPAT ARROW WORD SEMICOLON;
 
 
-extension:      WORD ARROW statement
-           |    REGEXTEN WORD ARROW statement
-           |    HINT LPAREN word3_list RPAREN WORD ARROW statement
-           |    REGEXTEN HINT LPAREN word3_list RPAREN WORD ARROW statement
-           ;
+extension: WORD ARROW statement
+        {
+            stringstream ss;
+            ss <<"[\""<<$1<<"\"] = "<<$3;            
+            $$ = alloc_string((char*)ss.str().data());
+            free($1);
+        }
+        |    REGEXTEN WORD ARROW statement
+        |    HINT LPAREN word3_list RPAREN WORD ARROW statement
+        |    REGEXTEN HINT LPAREN word3_list RPAREN WORD ARROW statement
+        ;
 
-statements:     statement
-            |   statements statement
-            ;
+statements: statement
+        {
+            $$ = alloc_string($1);
+        }
+        |   statements statement
+        {
+            $$ = grow_string($1,$2);
+        }
+        ;
 
 if_head: IF LPAREN implicit_expr_stat RPAREN;
 
@@ -251,29 +301,48 @@ word3_list: WORD
 switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA;
 
 
-statement: BRA statements KET
-       | WORD EQ implicit_expr_stat SEMICOLON
-       | LOCAL WORD EQ implicit_expr_stat SEMICOLON
-       | GOTO target SEMICOLON
-       | JUMP jumptarget SEMICOLON
-       | WORD COLON
-       | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
-       | WHILE LPAREN implicit_expr_stat RPAREN statement
-       | switch_head KET
-       | switch_head case_statements KET
-       | AND macro_call SEMICOLON
-       | application_call SEMICOLON
-       | application_call EQ implicit_expr_stat SEMICOLON
-       | BREAK SEMICOLON
-       | RETURN SEMICOLON
-       | CONTINUE SEMICOLON
-       | random_head statement
-       | random_head statement ELSE statement
-       | if_head statement
-       | if_head statement ELSE statement
-       | ifTime_head statement
-       | ifTime_head statement ELSE statement
-       | SEMICOLON
+statement:  BRA statements KET
+        {
+            stringstream ss;
+            ss << "function()"<<endl<<$2<<"end;";
+            $$ = alloc_string((char*)ss.str().data());
+        }
+        | WORD EQ implicit_expr_stat SEMICOLON
+        | LOCAL WORD EQ implicit_expr_stat SEMICOLON
+        | GOTO target SEMICOLON
+        | JUMP jumptarget SEMICOLON
+        | WORD COLON
+        | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
+        | WHILE LPAREN implicit_expr_stat RPAREN statement
+        | switch_head KET
+        | switch_head case_statements KET
+        | AND macro_call SEMICOLON
+        | application_call SEMICOLON
+        {
+            $$ = grow_string(convertAppcall($1),(char*)";\n");
+        }
+        | application_call EQ implicit_expr_stat SEMICOLON
+        {
+            stringstream ss;
+            ss << convertAppcall($1)<<" = " << $3 <<";"<<endl;
+            $$ = alloc_string((char*)ss.str().data());
+        }
+        | BREAK SEMICOLON
+        {
+            $$ = alloc_string((char*)"break;\n");
+        }
+        | RETURN SEMICOLON
+        {
+            $$ = alloc_string((char*)"return;\n");
+        }
+        | CONTINUE SEMICOLON
+        | random_head statement
+        | random_head statement ELSE statement
+        | if_head statement
+        | if_head statement ELSE statement
+        | ifTime_head statement
+        | ifTime_head statement ELSE statement
+        | SEMICOLON
        ;
 
 target: WORD
@@ -294,20 +363,38 @@ jumptarget: WORD
                ;
 
 macro_call: WORD LPAREN eval_arglist RPAREN
-       | WORD LPAREN RPAREN
-       ;
+        | WORD LPAREN RPAREN
+        ;
 
-application_call_head: WORD  LPAREN;
+application_call_head: WORD  LPAREN { $$ = grow_string($1,(char*)"("); };
 
 application_call: application_call_head eval_arglist RPAREN
-       | application_call_head RPAREN
-       ;
+        {
+            stringstream ss;
+            ss << $1 << $2 <<")";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+        }
+        | application_call_head RPAREN
+        {
+            $$ = grow_string($1,(char*)")");
+        }
+        ;
 
 eval_arglist:  implicit_expr_stat
-       | eval_arglist COMMA implicit_expr_stat 
-       | /* nothing */
-       | eval_arglist COMMA  /* nothing */
-       ;
+        | eval_arglist COMMA implicit_expr_stat        
+        {
+            stringstream ss;
+            ss << "," << $3;            
+            $$ = grow_string($1,(char*)ss.str().data());
+            destroy_string($1);
+        }
+        | /* nothing */
+        | eval_arglist COMMA  /* nothing */
+        {
+            $$ = grow_string($1,(char*)",");
+        }
+        ;
 
 case_statements: case_statement
        | case_statements case_statement
@@ -364,26 +451,26 @@ includes: INCLUDES BRA includeslist KET
 explicit_expr_stat : EXPRINIT implicit_expr_stat RSBRA ;
 implicit_expr_stat : base_expr ;
 base_expr: variable
-	| WORD
-	| operand_expr
-	| LPAREN operand_expr RPAREN
-	| explicit_expr_stat
-	;
+    | WORD
+    | operand_expr
+    | LPAREN operand_expr RPAREN
+    | explicit_expr_stat
+    ;
 operand_expr : unary_expr
-	| binary_expr
-	| conditional_op
-	;
+    | binary_expr
+    | conditional_op
+    ;
 binary_expr: base_expr binary_op base_expr;
 unary_expr: unary_op base_expr;
 conditional_op : base_expr CONDQUEST base_expr COLON base_expr ;
 binary_op: logical_binary_op
-	| arith_binary_op
-	;
+    | arith_binary_op
+    ;
 logical_binary_op : PIPE | AND | EQ | NOTEQ | LT | GT | GTEQ | LTEQ ;
 arith_binary_op : PLUS | MINUS | MULT | DIV | MOD ;
 unary_op : logical_unary_op
-	| arith_unary_op
-	;
+    | arith_unary_op
+    ;
 logical_unary_op : LOGNOT ;
 arith_unary_op : MINUS;
 variable: VARNAME ;
@@ -411,51 +498,51 @@ int main(int argc, char* argv[] )
     bool visualOutput = true;
     if (argc>1)
     {
-    	in_file = new std::ifstream(argv[1]);
-	if (in_file->fail())
-	{
-		std::cerr << "Unable to open input file : " << argv[1] << std::endl;
-		in_file = &std::cin;		
-	} else 
-	{
-		interInput = false;
-	}
+        in_file = new std::ifstream(argv[1]);
+    if (in_file->fail())
+    {
+        std::cerr << "Unable to open input file : " << argv[1] << std::endl;
+        in_file = &std::cin;        
+    } else 
+    {
+        interInput = false;
+    }
     }
     if (argc>2)
     {
-    	out_file = new std::ofstream(argv[2]);
-	if (out_file->fail())
-	{
-		std::cerr << "Unable to open output file : " << argv[2] << std::endl;
-		out_file = &std::cout;
-	} else 
-	{
-		visualOutput = false;
-	}
+        out_file = new std::ofstream(argv[2]);
+    if (out_file->fail())
+    {
+        std::cerr << "Unable to open output file : " << argv[2] << std::endl;
+        out_file = &std::cout;
+    } else 
+    {
+        visualOutput = false;
+    }
     }
     std::cout <<"Input Stream : ";
     if (interInput)
     {
-    	std::cout <<"stdin (interactive mode)" <<std::endl;
+        std::cout <<"stdin (interactive mode)" <<std::endl;
     } else
     {
-    	std::cout<<argv[1]<<std::endl;
+        std::cout<<argv[1]<<std::endl;
     }
     std::cout <<"Output Stream : ";
     if (visualOutput)
     {
-    	std::cout <<"stdout (visual output)" <<std::endl;
+        std::cout <<"stdout (visual output)" <<std::endl;
     } else
     {
-    	std::cout<<argv[2]<<std::endl;
+        std::cout<<argv[2]<<std::endl;
     }
     std::cout<<"This aren't right ? Use program parameter : ./ael input_file output_file !"<<std::endl;
     if (interInput)
     {
-    	std::cout<<"Now you can write the code ..."<<std::endl;
+        std::cout<<"Now you can write the code ..."<<std::endl;
     } else 
     {
-    	std::cout<<"Processing the file ..."<<std::endl;
+        std::cout<<"Processing the file ..."<<std::endl<<"-----------------------------"<<std::endl;
     }
     lexer.switch_streams(in_file,out_file);
     yyparse();
