@@ -140,13 +140,20 @@ char* grow_string(char* head, char* tail)
     return s;
 }
 
+char* handleIncludedName(char* name)
+{
+    stringstream ss;
+    ss << "\"" << name << "\"";
+    return alloc_string((char*)ss.str().data());
+}
+
 char* handleMacroDef(char* name,char* arglist, char* stats)
 {
     stringstream ss;
     ss<<"function "<<name<<"("<<arglist<<")"<<endl;
     ss<<stats;
     ss<<"end"<<endl<<endl;
-    return (char*)ss.str().data();
+    return alloc_string((char*)ss.str().data());
 }
 
 char* handleContext(char* name,char* content)
@@ -387,7 +394,14 @@ element:    extension
         |  SEMICOLON { $$ = alloc_string((char*)";"); }
         ;
 
-ignorepat: IGNOREPAT ARROW word SEMICOLON;
+ignorepat: IGNOREPAT ARROW word SEMICOLON
+         {
+            stringstream ss;
+            ss << "[\"ignorepat\"] = " << $3;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($3);
+         }
+         ;
 
 
 extension: word ARROW statement
@@ -457,8 +471,12 @@ ifTime_head:    IFTIME LPAREN word3_list COLON word3_list COLON word3_list PIPE 
            |    IFTIME LPAREN word PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
            ;
 
-word3_list: word { $$ = $1; }
-       |    word word 
+word3_list: 
+       word 
+       { 
+            $$ = $1; 
+       }
+       | word word 
        {
             stringstream ss;
             ss << $1 << " " << $2;
@@ -466,7 +484,7 @@ word3_list: word { $$ = $1; }
             destroy_string($1);
             destroy_string($2);
        }
-       |    word word word
+       | word word word
        {
             stringstream ss;
             ss << $1 << " " << $2 << " " << $3;
@@ -721,22 +739,100 @@ switchlist: word SEMICOLON
        | switchlist word SEMICOLON
        ;
 
-includeslist: includedname SEMICOLON
+includeslist: 
+       includedname SEMICOLON
+       {
+            stringstream ss;
+            ss << handleIncludedName($1);
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+       }
        | includedname PIPE word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
+       {
+            stringstream ss;
+            ss << $1 << "|" << $3 << ":" << $5 << ":" << $7 << "|" << $9 << "|" << $11 << "|" << $13;
+            $$ = alloc_string(handleIncludedName((char*)ss.str().data()));
+            destroy_string($1);
+            destroy_string($3);
+            destroy_string($5);
+            destroy_string($7);
+            destroy_string($9);
+            destroy_string($11);
+            destroy_string($13);
+       }
        | includedname PIPE word PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
+       {
+            stringstream ss;
+            ss << $1 << "|" << $3 << "|" << $5 << "|" << $7 << "|" << $9;
+            $$ = alloc_string(handleIncludedName((char*)ss.str().data()));
+            destroy_string($1);
+            destroy_string($3);
+            destroy_string($5);
+            destroy_string($7);
+            destroy_string($9);
+       }
        | includeslist includedname SEMICOLON
+       {
+            stringstream ss;
+            ss << "," << handleIncludedName($2);
+            $$ = grow_string($1, (char*) ss.str().data());
+            destroy_string($1);
+            destroy_string($2);
+       }
        | includeslist includedname PIPE word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
+       {
+            stringstream ss;
+            stringstream iss;
+            iss << $2 << "|" << $4 << ":" << $6 << ":" << $8 << "|" << $10 << "|" << $12 << "|" << $13;
+            char* name = handleIncludedName((char*) iss.str().data());
+            ss << "," << name;
+            $$ = grow_string($1, (char*) ss.str().data());
+            destroy_string($2);
+            destroy_string($4);
+            destroy_string($6);
+            destroy_string($8);
+            destroy_string($10);
+            destroy_string($12);
+            destroy_string($13);
+       }
        | includeslist includedname PIPE word PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
+       {
+            stringstream ss;
+            stringstream iss;
+            iss << $2 << "|" << $4 << "|" << $6 << "|" << $8 << "|" << $10;
+            char* name = handleIncludedName((char*) iss.str().data());
+            ss << "," << name;
+            $$ = grow_string($1, (char*) ss.str().data());
+            destroy_string($2);
+            destroy_string($4);
+            destroy_string($6);
+            destroy_string($8);
+            destroy_string($10);
+       }
        ;
 
-includedname: word
-        | DEFAULT
-        ;
+includedname: 
+       word
+       {
+           $$ = $1;
+       }
+       | DEFAULT
+       {
+           $$ = alloc_string((char*) "default");
+       }
+       ;
 
-includes: INCLUDES BRA includeslist KET
+includes: 
+       INCLUDES BRA includeslist KET
+       {
+            stringstream ss;
+            ss << "include = { " << $3 << " }";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($3);
+       }
        | INCLUDES BRA KET
        {
-            printf("\t includes block!\n");
+            $$ = alloc_string((char*) "include = {}");
        }
        ;
 
