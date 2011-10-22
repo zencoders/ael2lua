@@ -452,6 +452,12 @@ explicit_expr_stat : EXPRINIT implicit_expr_stat RSBRA ;
 implicit_expr_stat : base_expr ;
 base_expr: variable
     | WORD
+    {
+        stringstream ss;
+        ss << "\""<<$1<<"\"";
+        $$ = alloc_string((char*)ss.str().data());
+        free($1);
+    }
     | operand_expr
     | LPAREN operand_expr RPAREN
     | explicit_expr_stat
@@ -473,7 +479,12 @@ unary_op : logical_unary_op
     ;
 logical_unary_op : LOGNOT ;
 arith_unary_op : MINUS;
-variable: VARNAME ;
+variable: VARNAME
+    {
+        $$ = alloc_string($1);
+        free($1);
+    }
+    ;
 
 %%
 
