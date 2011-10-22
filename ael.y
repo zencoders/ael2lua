@@ -64,6 +64,15 @@ char* grow_string(char* head, char* tail)
     return s;
 }
 
+char* handleMacroDef(char* name,char* arglist, char* stats)
+{
+    stringstream ss;
+    ss<<"function "<<name<<"("<<arglist<<")"<<endl;
+    ss<<stats;
+    ss<<"end"<<endl<<endl;
+    return (char*)ss.str().data();
+}
+
 char* handleContext(char* name,char* content)
 {
     stringstream ss; 
@@ -77,7 +86,7 @@ char* handleContext(char* name,char* content)
     {
         ss<<content<<endl;
     }
-    ss<<"}" << endl;
+    ss<<"}" << endl<<endl;
     return alloc_string((char*)ss.str().data());
 }
 
@@ -176,7 +185,7 @@ objects:
 
 object:
         context { $$ = $1; /*cout << "<object-context> ->" << $$ << endl;*/ }
-    |   macro { $$ = $1; }
+    |   macro { $$ = $1; /*cout << "<object-macro>\n"<< &$$ <<"\b</object-macro>\n";*/} 
     |   globals { $$ = $1; }
     |   SEMICOLON { $$ = alloc_string((char*)";"); }
     ;
@@ -204,11 +213,31 @@ context:
     |   ABSTRACT CONTEXT DEFAULT BRA KET
     ;
 
-macro:      MACRO word LPAREN arglist RPAREN BRA macro_statements KET
-        |   MACRO word LPAREN arglist RPAREN BRA  KET
-        |   MACRO word LPAREN RPAREN BRA macro_statements KET
-        |   MACRO word LPAREN RPAREN BRA  KET
-        ;
+macro:  MACRO word LPAREN arglist RPAREN BRA macro_statements KET
+    {
+        $$ = handleMacroDef($2,$4,$7);
+        destroy_string($2);
+        destroy_string($4);
+        destroy_string($7);
+    }
+    |   MACRO word LPAREN arglist RPAREN BRA  KET
+    {
+        $$ = handleMacroDef($2,$4,(char*)"");
+        destroy_string($2);
+        destroy_string($4);
+    }
+    |   MACRO word LPAREN RPAREN BRA macro_statements KET
+    {   
+        $$ = handleMacroDef($2,(char*)"",$6);
+        destroy_string($2);
+        destroy_string($6);
+    }
+    |   MACRO word LPAREN RPAREN BRA KET
+    {
+        $$ = handleMacroDef($2,(char*)"",(char*)"");
+        destroy_string($2);
+    }
+    ;
 
 
 globals:    GLOBALS BRA global_statements KET
@@ -397,7 +426,6 @@ application_call: application_call_head eval_arglist RPAREN
             ss << $1 << $2 <<")";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
-            destroy_string($2);
         }
         | application_call_head RPAREN
         {
@@ -412,7 +440,6 @@ eval_arglist:  implicit_expr_stat
             ss << "," << $3;            
             $$ = grow_string($1,(char*)ss.str().data());
             destroy_string($1);
-            destroy_string($3);
         }
         | /* nothing */
         {
@@ -437,13 +464,32 @@ case_statement: CASE word COLON statements
        | PATTERN word COLON
        ;
 
-macro_statements: macro_statement
-       | macro_statements macro_statement
-       ;
+macro_statements:   macro_statement
+        {
+            $$ = alloc_string($1);
+            destroy_string($1);
+        }
+        | macro_statements macro_statement
+        {
+            $$ = grow_string($1,$2);
+            destroy_string($1);
+        }
+        ;
 
-macro_statement: statement
-       | CATCH word BRA statements KET
-       ;
+macro_statement: statement      
+        {
+            $$ = $1;
+        }
+        | CATCH word BRA statements KET
+        {
+            stringstream ss;
+            ss << "catch "<<$2<<" {"<<endl;
+            ss<<$4;
+            ss<<"}"<<endl;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($2);
+        }
+        ;
 
 switches: SWITCHES BRA switchlist KET
        | SWITCHES BRA KET
