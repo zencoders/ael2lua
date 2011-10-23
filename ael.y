@@ -381,17 +381,26 @@ elements:   element
             $$=grow_string($1,$2);
         }           
         ;
-element:    extension
+element:   extension
         {
             $$ = $1;
         }
         |  includes
+        {
+            $$ = $1;
+        }
         |  switches
         |  eswitches
         |  ignorepat
+        {
+            $$ = $1;
+        }
         |  word EQ implicit_expr_stat SEMICOLON
         |  LOCAL word EQ implicit_expr_stat SEMICOLON
-        |  SEMICOLON { $$ = alloc_string((char*)";"); }
+        |  SEMICOLON 
+        { 
+            $$ = alloc_string((char*)";"); 
+        }
         ;
 
 ignorepat: IGNOREPAT ARROW word SEMICOLON
@@ -517,6 +526,15 @@ statement:  BRA statements KET
         | JUMP jumptarget SEMICOLON
         | word COLON
         | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
+        {
+            stringstream ss;
+            ss << "for " << $3 << ", " << $5 << ", " << $7 << " do " << endl << $9 << endl << "end";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($3);
+            destroy_string($5);
+            destroy_string($7);
+            destroy_string($9);
+        }
         | WHILE LPAREN implicit_expr_stat RPAREN statement
         {
             stringstream ss;
