@@ -259,6 +259,7 @@ extern "C"
 %token EXPRINIT
 %token RSBRA
 %token NOTEQ
+%token EQUAL
 %token GT
 %token LT
 %token GTEQ
@@ -556,9 +557,12 @@ statement:  BRA statements KET
             switchStack.pop();
         }
         | AND macro_call SEMICOLON
+        {
+            $$ = grow_string($2,(char*)";\n");            
+        }
         | application_call SEMICOLON
         {
-            $$ = $1;
+            $$ = grow_string($1,(char*)";\n");
         }
         | application_call EQ implicit_expr_stat SEMICOLON
         {
@@ -613,6 +617,9 @@ jumptarget: word
 
 macro_call: word LPAREN eval_arglist RPAREN
         | word LPAREN RPAREN
+        {
+            $$ = grow_string($1,(char*)"()");
+        }
         ;
 
 application_call_head: word  LPAREN 
@@ -627,14 +634,14 @@ application_call_head: word  LPAREN
 application_call: application_call_head eval_arglist RPAREN
         {
             stringstream ss;
-            ss << $1 << $2 <<")"<<endl;
+            ss << $1 << $2 <<")";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
             destroy_string($2);
         }
         | application_call_head RPAREN
         {
-            $$ = grow_string($1,(char*)")\n");
+            $$ = grow_string($1,(char*)")");
         }
         ;
 
@@ -888,7 +895,7 @@ binary_op: logical_binary_op
     ;
 logical_binary_op : PIPE { $$ = alloc_string((char*)"|"); }
                   | AND { $$ = alloc_string((char*)"&"); }
-                  | EQ { $$ = alloc_string((char*)"="); }
+                  | EQUAL { $$ = alloc_string((char*)"=="); }
                   | NOTEQ { $$ = alloc_string((char*)"!="); }
                   | LT { $$ = alloc_string((char*)"<"); }
                   | GT { $$ = alloc_string((char*)">"); }

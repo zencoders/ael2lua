@@ -57,8 +57,9 @@ VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 "${"	    { /*printf("VARBEGIN\n");*/return VARBEGIN;}
 "$["	    { /*printf("EXPRINIT\n");*/return EXPRINIT;}
 "!="	    { /*printf("NOTEQ\n");*/return NOTEQ; }
+"=="        {/*printf("EQUAL\n");*/return EQUAL;}
 ">"	        { /*printf("GT\n");*/return GT; }
-"<"	        { /* printf("LT\n");*/return LT; }
+"<"	        { /*printf("LT\n");*/return LT; }
 ">="	    { /*printf("GTEQ\n");*/return GTEQ; }
 "<="	    { /*printf("LTEQ\n");*/return LTEQ; }
 "+"	        { /*printf("PLUS\n");*/return PLUS; }
