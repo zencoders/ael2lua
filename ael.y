@@ -94,6 +94,8 @@ bool luaExtAllocated=false;
 bool luaHintsAllocated=false;
 std::stack<SwitchStatementState> switchStack;
 
+std::list<string> messages;
+
 std::set<char*> garbage;
 string last_context;
 std::vector<std::string> hints;
@@ -211,6 +213,7 @@ extern "C"
 %}
 
 %error-verbose
+%locations
 
 %token EQ
 %token RPAREN
@@ -397,13 +400,6 @@ element:   extension
             $$ = $1;
         }
         |  word EQ implicit_expr_stat SEMICOLON
-        {
-            stringstream ss;
-            ss << "channel."<<$1 << " = "<<$3<<endl;
-            $$ = alloc_string((char*)ss.str().data());
-            destroy_string($1);
-            destroy_string($2);
-        }
         |  LOCAL word EQ implicit_expr_stat SEMICOLON
         |  SEMICOLON 
         { 
@@ -529,7 +525,21 @@ statement:  BRA statements KET
             $$ = alloc_string((char*)ss.str().data());
         }
         | word EQ implicit_expr_stat SEMICOLON
+        {
+            stringstream ss;
+            ss <<"channel."<< $1 <<" = "<<$3<<endl;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
+        }
         | LOCAL word EQ implicit_expr_stat SEMICOLON
+        {
+            stringstream ss;
+            ss << "local "<<$2<<" = "<<$4<<endl;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($2);
+            destroy_string($4);
+        }
         | GOTO target SEMICOLON
         | JUMP jumptarget SEMICOLON
         | word COLON
@@ -565,11 +575,11 @@ statement:  BRA statements KET
         }
         | AND macro_call SEMICOLON
         {
-            $$ = grow_string($2,(char*)";\n");            
+            $$ = grow_string($2,(char*)"\n");            
         }
         | application_call SEMICOLON
         {
-            $$ = grow_string($1,(char*)";\n");
+            $$ = grow_string($1,(char*)"\n");
         }
         | application_call EQ implicit_expr_stat SEMICOLON
         {
@@ -588,7 +598,9 @@ statement:  BRA statements KET
             } else            
             {
                 $$ = alloc_string((char*)"");
-                //cerr << "Break Found at "<<@$.first_line <<":"<<@$.first_column <<". Switch-case statement are converted to if-elseif chains so break becames useless"<<endl;
+                stringstrea ss;
+                ss<< "Break Found . Switch-case statement are converted to if-elseif chains so break becames useless;";
+                messages.push(ss.str());
             }
         }
         | RETURN SEMICOLON
