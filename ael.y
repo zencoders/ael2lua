@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <iterator>
 #include <stack>
+#include <list>
 
 #include <FlexLexer.h>
 
@@ -94,7 +95,6 @@ bool luaExtAllocated=false;
 bool luaHintsAllocated=false;
 std::stack<SwitchStatementState> switchStack;
 
-std::list<string> messages;
 
 std::set<char*> garbage;
 string last_context;
@@ -598,9 +598,7 @@ statement:  BRA statements KET
             } else            
             {
                 $$ = alloc_string((char*)"");
-                stringstrea ss;
-                ss<< "Break Found . Switch-case statement are converted to if-elseif chains so break becames useless;";
-                messages.push(ss.str());
+                //cerr<< "Break Found . Switch-case statement are converted to if-elseif chains so break becames useless;";
             }
         }
         | RETURN SEMICOLON
