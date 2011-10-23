@@ -651,6 +651,7 @@ application_call: application_call_head eval_arglist RPAREN
             ss << $1 << $2 <<")";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
+            destroy_string($2);
         }
         | application_call_head RPAREN
         {
@@ -892,7 +893,15 @@ operand_expr : unary_expr
     | binary_expr
     | conditional_op
     ;
-binary_expr: base_expr binary_op base_expr;
+binary_expr: base_expr binary_op base_expr 
+           { 
+                stringstream ss;
+                ss << $1 << " " << $2 << " " << $3;
+                $$ = alloc_string((char*)ss.str().data());
+                destroy_string($1);
+                destroy_string($2);
+                destroy_string($3);
+           };
 unary_expr: unary_op base_expr;
 conditional_op : base_expr CONDQUEST base_expr COLON base_expr ;
 binary_op: logical_binary_op

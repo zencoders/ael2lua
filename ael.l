@@ -18,7 +18,7 @@ VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 \(          { /*printf("LPAREN\n");*/ return LPAREN; }
 \}          { /*printf("KET\n");*/ return KET; }
 \{          { /*printf("BRA\n");*/ return BRA; }
-"]"	    { /*printf("RSBRA\n");*/return RSBRA; }
+"]"	        { /*printf("RSBRA\n");*/return RSBRA; }
 :           { /*printf("COLON\n");*/ return COLON; }
 ;           { /*printf("SEMICOLON\n");*/ return SEMICOLON; }
 ,           { /*printf("COMMA\n");*/ return COMMA; }
@@ -58,18 +58,18 @@ VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 "$["	    { /*printf("EXPRINIT\n");*/return EXPRINIT;}
 "!="	    { /*printf("NOTEQ\n");*/return NOTEQ; }
 "=="        {/*printf("EQUAL\n");*/return EQUAL;}
-">"	    { /*printf("GT\n");*/return GT; }
-"<"	    { /*printf("LT\n");*/return LT; }
+">"	        { /*printf("GT\n");*/return GT; }
+"<"	        { /*printf("LT\n");*/return LT; }
 ">="	    { /*printf("GTEQ\n");*/return GTEQ; }
 "<="	    { /*printf("LTEQ\n");*/return LTEQ; }
-"+"	    { /*printf("PLUS\n");*/return PLUS; }
-"-"	    { /*printf("MINUS\n");*/return MINUS; }
-"*"	    { /*printf("MULT\n");*/return MULT; }
-"/"	    { /*printf("DIV\n");*/return DIV; }
-"%"	    { /*printf("MOD\n");*/return MOD; }
+"+"	        { /*printf("PLUS\n");*/return PLUS; }
+"-"	        { /*printf("MINUS\n");*/return MINUS; }
+"*"	        { /*printf("MULT\n");*/return MULT; }
+"/"	        { /*printf("DIV\n");*/return DIV; }
+"%"	        { /*printf("MOD\n");*/return MOD; }
 "!"         { /*printf("LOGNOT\n");*/return LOGNOT; }
 "=~"	    { /*printf("LIKEOP\n");*/return LIKEOP; }
-"?"	    { /*printf("CONDQUEST\n");*/return CONDQUEST; }
+"?"	        { /*printf("CONDQUEST\n");*/return CONDQUEST; }
 
 {VARNAME}   {
 	    /*printf("VARNAME (%s)\n",yytext);*/
