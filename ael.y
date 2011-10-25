@@ -19,6 +19,8 @@
 
 #include <FlexLexer.h>
 
+#include "utilities.h"
+
 using namespace std;
 
 char* alloc_string(char*);
@@ -140,6 +142,20 @@ char* grow_string(char* head, char* tail)
     destroy_string(head); //IT IS SUPPOSED head ALLOCATED USING MALLOC
     garbage.insert(s);
     return s;
+}
+
+char* handleIf(char* head, char* statement)
+{
+    stringstream ss;
+    ss << head << statement << endl << "end";
+    return alloc_string((char*)ss.str().data());
+}
+
+char* handleIfElse(char* head, char* statement, char* statement2)
+{
+    stringstream ss;
+    ss << head << statement << endl << "else" << endl << statement2 << endl << "end";
+    return alloc_string((char*)ss.str().data());
 }
 
 char* handleIncludedName(char* name)
@@ -476,11 +492,109 @@ statements: statement
         }
         ;
 
-if_head: IF LPAREN implicit_expr_stat RPAREN;
+if_head: IF LPAREN implicit_expr_stat RPAREN
+       {
+            stringstream ss;
+            ss << "if " << $3 << "then" << endl;
+            $$ = alloc_string((char*) ss.str().data());
+            destroy_string($3);
+       }
+       ;
 
-random_head: RANDOM LPAREN implicit_expr_stat RPAREN;
+random_head: RANDOM LPAREN implicit_expr_stat RPAREN
+           {
+                stringstream ss;
+                ss << "r = math.random()" << endl;
+                ss << "if (r*100) <= " << $3 << " then " << endl;
+                $$ = alloc_string((char*)ss.str().data());
+                destroy_string($3);
+           }
+           ;
 
 ifTime_head:    IFTIME LPAREN word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
+           {
+                string bh($3);
+                string em($7);
+                vector<string> second_word = split($5, '-');
+                string beginHour(trim(bh));
+                string beginMinutes(trim(second_word[0]));
+                string endHour(trim(second_word[1]));
+                string endMinutes(trim(em));
+                string dw($9);
+                string dayword(trim(dw));
+                string beginDay = "";
+                string endDay = "";
+                if(dayword != "*")
+                {
+                    vector<string> days = split(dayword, '-');
+                    beginDay = sday2iday(trim(days[0]));
+                    if(days.size() > 1)
+                    {
+                        endDay = sday2iday(trim(days[1]));
+                    }
+                }
+                string dom($11);
+                string dayOfMonth(trim(dom));
+                string beginDOM = "";
+                string endDOM = "";
+                if(dayOfMonth != "*")
+                {
+                    vector<string> monthDays = split(dayOfMonth, '-');
+                    beginDOM = trim(monthDays[0]);
+                    if(monthDays.size() > 1)
+                    {
+                        endDOM = trim(monthDays[1]);
+                    }
+                }
+                string mon($13);
+                string month(trim(mon));
+                string beginMonth = "";
+                string endMonth = "";
+                if(month != "*")
+                {
+                    vector<string> months = split(month, '-');
+                    beginMonth = smonth2imonth(trim(months[0]));
+                    if(months.size() > 1)
+                    {
+                        endMonth = smonth2imonth(trim(months[1]));
+                    }
+                }
+                stringstream ss;
+                ss << "temp = os.date()" << endl;
+                ss << "if (";
+                bool first = true;
+                if(beginMonth != "")
+                {
+                    ss << "temp.month >= " << beginMonth << ((endMonth != "") ? (" and temp.month < " + endMonth) : "");
+                    first = false;
+                }
+                if(beginDOM != "")
+                {
+                    if(!first)
+                        ss << " and ";
+                    ss << "temp.day >= " << beginDOM << ((endDOM != "") ? (" and temp.day < " + endDOM) : "");
+                    first = false;
+                }
+                if(beginDay != "")
+                {
+                    if(!first)
+                        ss << " and ";
+                    ss << "temp.wday >= " << beginDay << ((beginDay != "") ? (" and temp.wday < " + endDay) : "");
+                    first = false;
+                }
+                if(!first)
+                    ss << " and ";
+                ss << "(temp.hour + 0.01 * temp.min) >= " << beginHour << "." << beginMinutes;
+                ss << " and (temp.hour + 0.01 * temp.min) < " << endHour << "." << endMinutes;
+                ss << ") then" << endl;
+                $$ = alloc_string((char*)ss.str().data());
+                destroy_string($3);
+                destroy_string($5);
+                destroy_string($7);
+                destroy_string($9);
+                destroy_string($11);
+                destroy_string($13);
+           }
            |    IFTIME LPAREN word PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
            ;
 
@@ -607,11 +721,44 @@ statement:  BRA statements KET
         }
         | CONTINUE SEMICOLON
         | random_head statement
+        {
+            $$ = handleIf($1,$2);
+            destroy_string($1);
+            destroy_string($2);
+        }
         | random_head statement ELSE statement
+        {
+            $$ = handleIfElse($1, $2, $4);
+            destroy_string($1);
+            destroy_string($2);
+            destroy_string($4);
+        }
         | if_head statement
+        {
+            $$ = handleIf($1,$2);
+            destroy_string($1);
+            destroy_string($2);
+        }
         | if_head statement ELSE statement
+        {
+            $$ = handleIfElse($1, $2, $4);
+            destroy_string($1);
+            destroy_string($2);
+            destroy_string($4);
+        }
         | ifTime_head statement
+        {
+            $$ = handleIf($1,$2);
+            destroy_string($1);
+            destroy_string($2);
+        }
         | ifTime_head statement ELSE statement
+        {
+            $$ = handleIfElse($1, $2, $4);
+            destroy_string($1);
+            destroy_string($2);
+            destroy_string($4);
+        }
         | SEMICOLON
        ;
 
@@ -633,18 +780,18 @@ jumptarget: word
                ;
 
 macro_call: word LPAREN eval_arglist RPAREN
-        {
-            stringstream ss;
-            ss << $1 <<"("<<$3<<")";
-            $$ = alloc_string((char*)ss.str().data());
-            destroy_string($1);
-            destroy_string($3);
-        }
-        | word LPAREN RPAREN
-        {
-            $$ = grow_string($1,(char*)"()");
-        }
-        ;
+          {
+                stringstream ss;
+                ss << $1 << "(" << $3 << ")";
+                $$ = alloc_string((char*)ss.str().data());
+                destroy_string($1);
+                destroy_string($3);
+          }
+          | word LPAREN RPAREN
+          {
+                $$ = grow_string($1,(char*)"()");
+          }
+          ;
 
 application_call_head: word  LPAREN 
         { 
@@ -669,23 +816,26 @@ application_call: application_call_head eval_arglist RPAREN
         }
         ;
 
-eval_arglist:  implicit_expr_stat
-        | eval_arglist COMMA implicit_expr_stat
-        {
-            stringstream ss;
-            ss << "," << $3;            
-            $$ = grow_string($1,(char*)ss.str().data());
-            destroy_string($1);
-        }
-        | /* nothing */
-        {
-            $$ = alloc_string((char*)"nil");
-        }
-        | eval_arglist COMMA  /* nothing */
-        {
-            $$ = grow_string($1,(char*)",");
-        }
-        ;
+eval_arglist: implicit_expr_stat
+            {
+                $$ = $1;
+            }
+            | eval_arglist COMMA implicit_expr_stat
+            {
+                stringstream ss;
+                ss << "," << $3;            
+                $$ = grow_string($1,(char*)ss.str().data());
+                destroy_string($1);
+            }
+            | /* nothing */
+            {
+                $$ = alloc_string((char*)"nil");
+            }
+            | eval_arglist COMMA  /* nothing */
+            {
+                $$ = grow_string($1,(char*)",");
+            }
+            ;
 
 case_statements: case_statement
         {
@@ -912,11 +1062,25 @@ binary_expr: base_expr binary_op base_expr
                 destroy_string($2);
                 destroy_string($3);
            };
-unary_expr: unary_op base_expr;
+unary_expr: unary_op base_expr
+          {
+                stringstream ss;
+                ss << $1 << $2;
+                $$ = alloc_string((char*) ss.str().data());
+                destroy_string($1);
+                destroy_string($2);
+          }
+          ;
 conditional_op : base_expr CONDQUEST base_expr COLON base_expr ;
 binary_op: logical_binary_op
-    | arith_binary_op
-    ;
+         {
+            $$ = $1;
+         }
+         | arith_binary_op
+         {
+            $$ = $1;
+         }
+         ;
 logical_binary_op : PIPE { $$ = alloc_string((char*)"|"); }
                   | AND { $$ = alloc_string((char*)"&"); }
                   | EQUAL { $$ = alloc_string((char*)"=="); }
