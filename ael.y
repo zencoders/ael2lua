@@ -413,6 +413,13 @@ element:   extension
             $$ = $1;
         }
         |  word EQ implicit_expr_stat SEMICOLON
+        {
+            stringstream ss;
+            ss << "channel."<<$1 << " = "<<$3<<endl;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($2);
+        }
         |  LOCAL word EQ implicit_expr_stat SEMICOLON
         |  SEMICOLON 
         { 
@@ -777,13 +784,13 @@ macro_call: word LPAREN eval_arglist RPAREN
           ;
 
 application_call_head: word  LPAREN 
-                    { 
-                        stringstream ss;
-                        $1[0] = tolower($1[0]);
-                        ss << "app." << $1 << "(";
-                        $$ = alloc_string((char*)ss.str().data());
-                        destroy_string($1);
-                    };
+        { 
+            stringstream ss;
+            $1[0] = tolower($1[0]);
+            ss << "app." << $1 << "(";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+        };
 
 application_call: application_call_head eval_arglist RPAREN
         {
