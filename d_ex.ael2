@@ -1,0 +1,54 @@
+macro ancoradd()
+{
+}
+macro mymrc( ext , dev ) 
+{
+    Dial(${dev}/${ext},20);
+    switch(${DIALSTATUS}) {
+        case BUSY:
+                Voicemail(b${ext}});
+                break;
+        pattern DESTR.*:
+        case DOWN:
+                Voicemail(d${ext});
+                break;
+        default:
+                Voicemail(u${ext});
+    }
+    catch a {
+        VoiceMailMain(${ext});
+        return;
+    }
+}
+
+
+context default 
+{
+    s => {
+        pippo();
+yeah:        
+        &ancoradd();
+        goto prova,100,pippo;
+        jump 100,pippo@prova;
+        return;
+    }
+}
+
+context prova 
+{
+    100 => {
+pippo:
+        h12 = ohhhhhhh;
+        goto default|s|yeah;
+        jump s@default;
+        jump 100;
+        local h0 = yessssS;
+        pappo(${h0},h);
+        goto pippo;
+        jump 100;
+        &mymrc(${h12},ajjj);        
+    }
+    101 => {
+        goto 100|pippo;
+    }
+}
