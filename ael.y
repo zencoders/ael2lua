@@ -137,6 +137,146 @@ char* alloc_string(char* d)
     return s;
 }
 
+typedef struct 
+{
+    char* beginHour;
+    char* endHour;
+    char* beginMinutes;
+    char* endMinutes;
+    char* beginDay;
+    char* endDay;
+    char* beginDOM;
+    char* endDOM;
+    char* beginMonth;
+    char* endMonth;
+
+    void destroyAll()
+    {
+        destroy_string(beginHour);
+        destroy_string(endHour);
+        destroy_string(beginMinutes);
+        destroy_string(endMinutes);
+        destroy_string(beginDay);
+        destroy_string(endDay);
+        destroy_string(beginDOM);
+        destroy_string(endDOM);
+        destroy_string(beginMonth);
+        destroy_string(endMonth);
+    }
+} TimeStruct;
+
+
+
+string time2iftime(TimeStruct* ts)
+{
+    stringstream ss;
+    ss << "temp = os.date()" << endl;
+    ss << "if (";
+    bool first = true;
+    if(ts->beginMonth != "")
+    {
+        ss << "temp.month >= " << ts->beginMonth << ((ts->endMonth != "") ? (" and temp.month < " + string(ts->endMonth)) : "");
+        first = false;
+    }
+    if(ts->beginDOM != "")
+    {
+        if(!first)
+            ss << " and ";
+        ss << "temp.day >= " << ts->beginDOM << ((ts->endDOM != "") ? (" and temp.day < " + string(ts->endDOM)) : "");
+        first = false;
+    }
+    if(ts->beginDay != "")
+    {
+        if(!first)
+            ss << " and ";
+        ss << "temp.wday >= " << ts->beginDay << ((ts->beginDay != "") ? (" and temp.wday < " + string(ts->endDay)) : "");
+        first = false;
+    }
+    if(!first)
+        ss << " and ";
+    ss << "(temp.hour + 0.01 * temp.min) >= " << ts->beginHour << "." << ts->beginMinutes;
+    ss << " and (temp.hour + 0.01 * temp.min) < " << ts->endHour << "." << ts->endMinutes;
+    ss << ") then" << endl;
+    return ss.str();
+}
+
+void handleTimes(char* t1, char* t2, char* t3, char* day, char* md, char* m, TimeStruct* ts)
+{
+    string bh(t1);
+    string em(t3);
+    vector<string> second_word = split(t2, '-');
+    ts->beginHour = alloc_string((char*)trim(bh).data());
+    ts->beginMinutes = alloc_string((char*)trim(second_word[0]).data());
+    ts->endHour = alloc_string((char*)trim(second_word[1]).data());
+    ts->endMinutes = alloc_string((char*)trim(em).data());
+    string dw(day);
+    string dayword(trim(dw));
+    string beginDayString = "";
+    string endDayString = "";
+    if(dayword != "*")
+    {
+        vector<string> days = split(dayword, '-');
+        beginDayString = sday2iday(trim(days[0]));
+        if(days.size() > 1)
+        {
+            endDayString = sday2iday(trim(days[1]));
+        }
+    }
+    ts->beginDay = alloc_string((char*)beginDayString.data());
+    ts->endDay = alloc_string((char*)endDayString.data());
+    string dom(md);
+    string dayOfMonth(trim(dom));
+    string beginDOMString = "";
+    string endDOMString = "";
+    if(dayOfMonth != "*")
+    {
+        vector<string> monthDays = split(dayOfMonth, '-');
+        beginDOMString = trim(monthDays[0]);
+        if(monthDays.size() > 1)
+        {
+            endDOMString = trim(monthDays[1]);
+        }
+    }
+    ts->beginDOM = alloc_string((char*)beginDOMString.data());
+    ts->endDOM = alloc_string((char*)endDOMString.data());
+    string mon(m);
+    string month(trim(mon));
+    string beginMonthString = "";
+    string endMonthString = "";
+    if(month != "*")
+    {
+        vector<string> months = split(month, '-');
+        beginMonthString = smonth2imonth(trim(months[0]));
+        if(months.size() > 1)
+        {
+            endMonthString = smonth2imonth(trim(months[1]));
+        }
+    }
+    ts->beginMonth = alloc_string((char*)beginMonthString.data());
+    ts->endMonth = alloc_string((char*)endMonthString.data());
+}
+
+void handleTimes(char* time, char* day, char* md, char* m, TimeStruct* ts)
+{
+    char* t1;
+    char* t2;
+    char* t3;
+    if(string(time) == "*")
+    {
+        t1 = (char*)"00";
+        t2 = (char*)"00-23";
+        t3 = (char*)"59";
+    }
+    else
+    {
+        vector<string> time_parts = split(time, ':');
+        t1 = (char*) time_parts[0].data();
+        t2 = (char*) time_parts[1].data();
+        t3 = (char*) time_parts[2].data();
+    }
+    handleTimes(t1,t2,t3,day,md,m,ts);
+}
+
 char* grow_string(char* head, char* tail)
 {
     char* s = (char*) calloc((strlen(head) + strlen(tail) + 2), sizeof(char));
@@ -515,89 +655,30 @@ random_head: RANDOM LPAREN implicit_expr_stat RPAREN
 
 ifTime_head:    IFTIME LPAREN word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
            {
-                string bh($3);
-                string em($7);
-                vector<string> second_word = split($5, '-');
-                string beginHour(trim(bh));
-                string beginMinutes(trim(second_word[0]));
-                string endHour(trim(second_word[1]));
-                string endMinutes(trim(em));
-                string dw($9);
-                string dayword(trim(dw));
-                string beginDay = "";
-                string endDay = "";
-                if(dayword != "*")
-                {
-                    vector<string> days = split(dayword, '-');
-                    beginDay = sday2iday(trim(days[0]));
-                    if(days.size() > 1)
-                    {
-                        endDay = sday2iday(trim(days[1]));
-                    }
-                }
-                string dom($11);
-                string dayOfMonth(trim(dom));
-                string beginDOM = "";
-                string endDOM = "";
-                if(dayOfMonth != "*")
-                {
-                    vector<string> monthDays = split(dayOfMonth, '-');
-                    beginDOM = trim(monthDays[0]);
-                    if(monthDays.size() > 1)
-                    {
-                        endDOM = trim(monthDays[1]);
-                    }
-                }
-                string mon($13);
-                string month(trim(mon));
-                string beginMonth = "";
-                string endMonth = "";
-                if(month != "*")
-                {
-                    vector<string> months = split(month, '-');
-                    beginMonth = smonth2imonth(trim(months[0]));
-                    if(months.size() > 1)
-                    {
-                        endMonth = smonth2imonth(trim(months[1]));
-                    }
-                }
-                stringstream ss;
-                ss << "temp = os.date()" << endl;
-                ss << "if (";
-                bool first = true;
-                if(beginMonth != "")
-                {
-                    ss << "temp.month >= " << beginMonth << ((endMonth != "") ? (" and temp.month < " + endMonth) : "");
-                    first = false;
-                }
-                if(beginDOM != "")
-                {
-                    if(!first)
-                        ss << " and ";
-                    ss << "temp.day >= " << beginDOM << ((endDOM != "") ? (" and temp.day < " + endDOM) : "");
-                    first = false;
-                }
-                if(beginDay != "")
-                {
-                    if(!first)
-                        ss << " and ";
-                    ss << "temp.wday >= " << beginDay << ((beginDay != "") ? (" and temp.wday < " + endDay) : "");
-                    first = false;
-                }
-                if(!first)
-                    ss << " and ";
-                ss << "(temp.hour + 0.01 * temp.min) >= " << beginHour << "." << beginMinutes;
-                ss << " and (temp.hour + 0.01 * temp.min) < " << endHour << "." << endMinutes;
-                ss << ") then" << endl;
-                $$ = alloc_string((char*)ss.str().data());
+                TimeStruct ts;
+                handleTimes($3, $5, $7, $9, $11, $13, &ts);
+                string s = time2iftime(&ts);
+                $$ = alloc_string((char*)s.data());
                 destroy_string($3);
                 destroy_string($5);
                 destroy_string($7);
                 destroy_string($9);
                 destroy_string($11);
                 destroy_string($13);
+                ts.destroyAll();
            }
            |    IFTIME LPAREN word PIPE word3_list PIPE word3_list PIPE word3_list RPAREN
+           {
+                TimeStruct ts;
+                handleTimes($3, $5, $7, $9, &ts);
+                string s = time2iftime(&ts);
+                $$ = alloc_string((char*)s.data());
+                destroy_string($3);
+                destroy_string($5);
+                destroy_string($7);
+                destroy_string($9);
+                ts.destroyAll();
+           }
            ;
 
 word3_list: 
