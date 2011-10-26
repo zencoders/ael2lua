@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <iterator>
 #include <stack>
+#include <list>
 
 #include <FlexLexer.h>
 
@@ -95,6 +96,9 @@ string box;
 bool luaExtAllocated=false;
 bool luaHintsAllocated=false;
 std::stack<SwitchStatementState> switchStack;
+
+string current_ext;
+string current_context;
 
 std::set<char*> garbage;
 string last_context;
@@ -367,6 +371,7 @@ extern "C"
 %}
 
 %error-verbose
+%locations
 
 %token EQ
 %token RPAREN
@@ -468,7 +473,7 @@ context:
     |   CONTEXT DEFAULT BRA elements KET
     {
         last_context = "default";
-        $$ = handleContext((char*)"default",$4);    
+        $$ = handleContext((char*)"default",$4);   
     }
     |   CONTEXT DEFAULT BRA KET
     {
@@ -553,13 +558,6 @@ element:   extension
             $$ = $1;
         }
         |  word EQ implicit_expr_stat SEMICOLON
-        {
-            stringstream ss;
-            ss << "channel."<<$1 << " = "<<$3<<endl;
-            $$ = alloc_string((char*)ss.str().data());
-            destroy_string($1);
-            destroy_string($2);
-        }
         |  LOCAL word EQ implicit_expr_stat SEMICOLON
         |  SEMICOLON 
         { 
@@ -724,10 +722,48 @@ statement:  BRA statements KET
             $$ = alloc_string((char*)ss.str().data());
         }
         | word EQ implicit_expr_stat SEMICOLON
+        {
+            stringstream ss;
+            ss <<"channel."<< $1 <<" = "<<$3<<endl;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
+        }
         | LOCAL word EQ implicit_expr_stat SEMICOLON
+        {
+            stringstream ss;
+            ss << "local "<<$2<<" = "<<$4<<endl;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($2);
+            destroy_string($4);
+        }
         | GOTO target SEMICOLON
+        {
+            if (($2[0]=='-')&&($2[1]=='-'))
+            {
+                $$ = grow_string($2,(char*)"\n");
+            } else
+            {
+                stringstream ss;
+                ss << "goto "<<$2<<endl;
+                $$ = alloc_string((char*)ss.str().data());
+                destroy_string($2);
+            }
+        }
         | JUMP jumptarget SEMICOLON
+        {
+                stringstream ss;
+                ss << "return app.goto("<<$2<<")"<<endl;
+                $$ = alloc_string((char*)ss.str().data());
+                destroy_string($2);
+        }
         | word COLON
+        {
+            stringstream ss;
+            ss << "::"<<$1<<"::"<<endl;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+        }            
         | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
         {
             stringstream ss;
@@ -760,11 +796,11 @@ statement:  BRA statements KET
         }
         | AND macro_call SEMICOLON
         {
-            $$ = grow_string($2,(char*)";\n");            
+            $$ = grow_string($2,(char*)"\n");            
         }
         | application_call SEMICOLON
         {
-            $$ = grow_string($1,(char*)";\n");
+            $$ = grow_string($1,(char*)"\n");
         }
         | application_call EQ implicit_expr_stat SEMICOLON
         {
@@ -783,7 +819,7 @@ statement:  BRA statements KET
             } else            
             {
                 $$ = alloc_string((char*)"");
-                //cerr << "Break Found at "<<@$.first_line <<":"<<@$.first_column <<". Switch-case statement are converted to if-elseif chains so break becames useless"<<endl;
+                //cerr<< "Break Found . Switch-case statement are converted to if-elseif chains so break becames useless;";
             }
         }
         | RETURN SEMICOLON
@@ -834,21 +870,131 @@ statement:  BRA statements KET
        ;
 
 target: word
-       | word PIPE word
-       | word PIPE word PIPE word
-       | DEFAULT PIPE word PIPE word
-       | word COMMA word
-       | word COMMA word COMMA word
-       | DEFAULT COMMA word COMMA word
-       ;
+        {
+            //GOTO LOCAL LABEL => Supported
+            $$ = $1;
+        }
+        | word PIPE word
+        {
+            //GOTO LABEL IN DIFFERENT EXTENSION : Not Supported
+            stringstream ss;
+            ss << "-- (ael2lua warning) goto a label on a different extension is not supported (original AEL2 target : ";
+            ss << $1 << "|" << $3<<")";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
+        }   
+        | word PIPE word PIPE word
+        {
+            //GOTO LABEL IN DIFFERENT CONTEXT AND EXTENSION : Not Supported
+            stringstream ss;
+            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
+            ss << $1 << "|" << $3<<"|"<<$5<<")";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
+            destroy_string($5);
+        }
+        | DEFAULT PIPE word PIPE word
+        {
+              //GOTO LABEL IN DIFFERENT CONTEXT AND EXTENSION : Not Supported
+            stringstream ss;
+            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
+            ss << "default" << "|" << $3<<"|"<<$5<<")";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($3);
+            destroy_string($5);
+
+        }
+        | word COMMA word
+        {
+            //GOTO LABEL IN DIFFERENT EXTENSION : Not Supported
+            stringstream ss;
+            ss << "-- (ael2lua warning) goto a label on a different extension is not supported (original AEL2 target : ";
+            ss << $1 << "," << $3<<")";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
+
+        }
+        | word COMMA word COMMA word    
+        {
+            //GOTO LABEL IN DIFFERENT CONTEXT AND EXTENSION : Not Supported
+            stringstream ss;
+            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
+            ss << $1 << "," << $3<<","<<$5<<")";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
+            destroy_string($5);
+        }
+        | DEFAULT COMMA word COMMA word
+        {
+            //GOTO LABEL IN DIFFERENT CONTEXT AND EXTENSION : Not Supported
+            stringstream ss;
+            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
+            ss << "default" << "," << $3<<","<<$5<<")";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($3);
+            destroy_string($5);
+
+        }
+        ;
 
 jumptarget: word
-               | word COMMA word
-               | word COMMA word AT word
-               | word AT word
-               | word COMMA word AT DEFAULT
-               | word AT DEFAULT
-               ;
+        {
+            //JUMP TO EXTENSION (SAME EXTENSION)
+            stringstream ss;
+            ss <<"\""<<$1<<"\",1";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+        }
+        | word COMMA word
+        {
+            //JUMP TO LABEL (DIFFERENT EXTENSION)
+            stringstream ss;
+            ss << "\""<<$1<<"\","<<$3;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
+        }        
+        | word COMMA word AT word
+        {
+           //JUMP TO LABEL (DIFFERENT EXTENSION AND CONTEXT);
+           stringstream ss;
+           ss << "\""<<$1<<"\",\""<<$3<<"\","<<$5;
+           $$ = alloc_string((char*)ss.str().data());
+           destroy_string($1);
+           destroy_string($3);
+           destroy_string($5);
+        }        
+        | word AT word
+        {
+            //JUMP TO EXTENSION : supported
+            stringstream ss;
+            ss << "\""<<$3<<"\",\""<<$1<<"\",1";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($2);
+        }
+        | word COMMA word AT DEFAULT
+        {
+           //JUMP TO LABEL (DIFFERENT EXTENSION AND CONTEXT);
+           stringstream ss;
+           ss << "\"default\",\""<<$3<<"\","<<$5;
+           $$ = alloc_string((char*)ss.str().data());
+           destroy_string($1);
+           destroy_string($3);
+        }
+        | word AT DEFAULT
+        {
+            //JUMP TO EXTENSION : supported
+            stringstream ss;
+            ss << "\"default\",\""<<$1<<"\",1";
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+        }
+        ;
 
 macro_call: word LPAREN eval_arglist RPAREN
           {
