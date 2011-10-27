@@ -10,6 +10,7 @@ extern int yywrap(void);
 %}
 
 WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
+COLLECTED_WORD (\".*\")|(\$\[.*\])
 VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 
 %%
@@ -79,6 +80,13 @@ VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 	    return VARNAME;
 	    }
 
+{COLLECTED_WORD}      { 
+        /*printf("WORD (%s)\n",yytext);*/
+        p=(char*) calloc(strlen(yytext)+1,sizeof(char));
+        strcpy(p, yytext);
+        yylval = (YYSTYPE)p;
+        return COLLECTED_WORD; 
+    }
 
 {WORD}      { 
         /*printf("WORD (%s)\n",yytext);*/

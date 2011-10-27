@@ -705,6 +705,11 @@ word3_list:
        }
        ;
 
+words:
+     word3_list word
+     | words word
+     ;
+
 switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA
         {
             stringstream ss;
@@ -1166,6 +1171,7 @@ includeslist:
        }
        | includedname PIPE word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
        {
+            // REDO !
             stringstream ss;
             ss << $1 << "|" << $3 << ":" << $5 << ":" << $7 << "|" << $9 << "|" << $11 << "|" << $13;
             $$ = alloc_string(handleIncludedName((char*)ss.str().data()));
@@ -1179,6 +1185,7 @@ includeslist:
        }
        | includedname PIPE word PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
        {
+            // REDO !
             stringstream ss;
             ss << $1 << "|" << $3 << "|" << $5 << "|" << $7 << "|" << $9;
             $$ = alloc_string(handleIncludedName((char*)ss.str().data()));
@@ -1198,6 +1205,7 @@ includeslist:
        }
        | includeslist includedname PIPE word3_list COLON word3_list COLON word3_list PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
        {
+            // REDO !
             stringstream ss;
             stringstream iss;
             iss << $2 << "|" << $4 << ":" << $6 << ":" << $8 << "|" << $10 << "|" << $12 << "|" << $13;
@@ -1214,6 +1222,7 @@ includeslist:
        }
        | includeslist includedname PIPE word PIPE word3_list PIPE word3_list PIPE word3_list SEMICOLON
        {
+            // REDO !
             stringstream ss;
             stringstream iss;
             iss << $2 << "|" << $4 << "|" << $6 << "|" << $8 << "|" << $10;
@@ -1256,12 +1265,12 @@ includes:
 explicit_expr_stat : EXPRINIT implicit_expr_stat RSBRA ;
 implicit_expr_stat : base_expr ;
 base_expr: variable
-    | word
+    | collected_word
     {
-        stringstream ss;
-        ss << "\""<<$1<<"\"";
-        $$ = alloc_string((char*)ss.str().data());
+        $$ = $1;
     }
+    | word
+    | words
     | operand_expr
     | LPAREN operand_expr RPAREN
     | explicit_expr_stat
@@ -1320,6 +1329,7 @@ logical_unary_op : LOGNOT { $$ = alloc_string((char*) "!"); };
 arith_unary_op : MINUS { $$ = alloc_string((char*) "-"); };
 variable: VARNAME { $$ = alloc_string($1); free($1); };
 word: WORD { $$ = alloc_string($1); free($1); };
+collected_word: COLLECTED_WORD { $$ = alloc_string($1); free($1); };
 
 %%
 
