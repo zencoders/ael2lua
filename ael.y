@@ -20,10 +20,26 @@
 #include <FlexLexer.h>
 
 #include "utilities.h"
+#include "common.h"
 
 using namespace std;
 
-char* alloc_string(char*);
+string analyze_expression(const string& s);
+
+char* to_expr_analysis(char* s)
+{
+    char* to_ret;
+    if(isNumeric(s, 10))
+    {
+        to_ret = s;
+    }
+    else
+    {
+        string ss = analyze_expression(s);
+        to_ret = (char*) ss.data();
+    }
+    return to_ret;
+}
 
 typedef struct {
     char* value;
@@ -100,41 +116,12 @@ std::stack<SwitchStatementState> switchStack;
 string current_ext;
 string current_context;
 
-std::set<char*> garbage;
 string last_context;
 std::vector<std::string> hints;
 
 int yylex(void)
 {
     return lexer.yylex();
-}
-
-void destroy_string(char* p)
-{
-    std::set<char*>::iterator it = garbage.find(p);
-    if(it != garbage.end())
-    {
-        free(*it);
-        garbage.erase(it);
-    }
-}
-
-void recycle_garbage()
-{
-    set<char*>::iterator it;
-    for(it = garbage.begin(); it != garbage.end(); it++)
-    {
-        destroy_string((*it));
-    }
-    garbage.clear();
-}
-
-char* alloc_string(char* d)
-{
-    char* s = (char*) calloc((strlen(d) + 1),sizeof(char));
-    strcpy(s, d);
-    garbage.insert(s);
-    return s;
 }
 
 typedef struct 
@@ -277,15 +264,6 @@ void handleTimes(char* time, char* day, char* md, char* m, TimeStruct* ts)
     handleTimes(t1,t2,t3,day,md,m,ts);
 }
 
-char* grow_string(char* head, char* tail)
-{
-    char* s = (char*) calloc((strlen(head) + strlen(tail) + 2), sizeof(char));
-    sprintf(s,"%s%s", head, tail);
-    destroy_string(head); //IT IS SUPPOSED head ALLOCATED USING MALLOC
-    garbage.insert(s);
-    return s;
-}
-
 char* handleIf(char* head, char* statement)
 {
     stringstream ss;
@@ -363,6 +341,7 @@ extern "C"
     int yyparse(void);
     void yyerror(string);
     FILE* yyin;
+    FILE* yyout;
 
     #ifndef yywrap
     int yywrap() { return 1; }    
@@ -1262,18 +1241,39 @@ includes:
        }
        ;
 
-explicit_expr_stat : EXPRINIT implicit_expr_stat RSBRA ;
-implicit_expr_stat : base_expr ;
-base_expr: variable
-    | collected_word
+explicit_expr_stat : EXPRINIT implicit_expr_stat RSBRA 
+                   {
+                        $$ = $2;
+                   }
+                   ;
+implicit_expr_stat : base_expr { $$ = $1; };
+
+base_expr: 
+    explicit_expr_stat
     {
         $$ = $1;
     }
+    | variable
+    {
+        $$ = extract_variable($1);
+    }
+    | collected_word
+    {
+        $$ = alloc_string(to_expr_analysis($1));
+        destroy_string($1);
+    }
     | word
+    {
+        $$ = alloc_string(to_expr_analysis($1));
+        destroy_string($1);
+    }
     | words
+    {
+        $$ = alloc_string(to_expr_analysis($1));
+        destroy_string($1);
+    }
     | operand_expr
     | LPAREN operand_expr RPAREN
-    | explicit_expr_stat
     ;
 operand_expr : unary_expr
     | binary_expr

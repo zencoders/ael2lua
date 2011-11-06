@@ -6,7 +6,7 @@ macro mymrc( ext , dev )
     Dial(${dev}/${ext},20);
     switch(${DIALSTATUS}) {
         case BUSY:
-                Voicemail(b${ext}});
+                Voicemail(b${ext});
                 break;
         pattern DESTR.*:
         case DOWN:
