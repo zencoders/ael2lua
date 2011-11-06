@@ -4,6 +4,7 @@
 #include <set>
 #include <cstring>
 #include <string>
+#include <sstream>
 
 std::set<char*> garbage;
 
@@ -63,4 +64,25 @@ char* extract_variable(char* s)
         to_ret = alloc_string((char*)"");
     }
     return to_ret;
+}
+
+char* extract_binary_expr(char* a, char* b, char* c)
+{
+    std::stringstream ss;
+    ss << a << " " << b << " " << c;
+    return alloc_string((char*)ss.str().data());
+}
+
+char* extract_unary_expr(char* a, char* b)
+{
+    std::stringstream ss;
+    ss << a << b;
+    return alloc_string((char*) ss.str().data());
+}
+
+char* extract_conditional_op(char* a, char* b, char* c)
+{
+    std::stringstream ss;
+    ss << "if " << a << " then " << b << " else " << c << " end";
+    return alloc_string((char*) ss.str().data());
 }

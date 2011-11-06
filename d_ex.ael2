@@ -13,7 +13,7 @@ macro mymrc( ext , dev )
                 Voicemail(d${ext});
                 break;
         default:
-                Voicemail(u${ext});
+                Voicemail(u${ext}b);
     }
     catch a {
         VoiceMailMain(${ext});

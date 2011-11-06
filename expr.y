@@ -120,6 +120,12 @@ coll_word:
             $$ = extract_variable($1);
          }
          | NUM
+         {
+            stringstream ss;
+            ss << "\"" << $1 << "\"";
+            $$ = alloc_string((char*) ss.str().data());
+            free($1);
+         }
          | NOVAR_WORD
          {
             stringstream ss;
@@ -129,33 +135,27 @@ coll_word:
          }
          ;
 
-operand_expr : unary_expr
-    | binary_expr
-    | conditional_op
+operand_expr : unary_expr { $$ = $1; }
+    | binary_expr { $$ = $1; }
+    | conditional_op { $$ = $1; }
     ;
 binary_expr: base_expr binary_op base_expr 
            { 
-                stringstream ss;
-                ss << $1 << " " << $2 << " " << $3;
-                $$ = alloc_string((char*)ss.str().data());
+                $$ = extract_binary_expr($1, $2, $3);
                 destroy_string($1);
                 destroy_string($2);
                 destroy_string($3);
            };
 unary_expr: unary_op base_expr
           {
-                stringstream ss;
-                ss << $1 << $2;
-                $$ = alloc_string((char*) ss.str().data());
+                $$ = extract_unary_expr($1, $2);
                 destroy_string($1);
                 destroy_string($2);
           }
           ;
 conditional_op : base_expr CONDQUEST base_expr COLON base_expr 
           {
-                stringstream ss;
-                ss << "if " << $1 << " then " << $3 << " else " << $5 << " end";
-                $$ = alloc_string((char*) ss.str().data());
+                $$ = extract_conditional_op($1, $3, $5);
                 destroy_string($1);
                 destroy_string($3);
                 destroy_string($5);

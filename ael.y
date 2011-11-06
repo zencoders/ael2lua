@@ -342,6 +342,7 @@ extern "C"
     void yyerror(string);
     FILE* yyin;
     FILE* yyout;
+    ostream* out_file;
 
     #ifndef yywrap
     int yywrap() { return 1; }    
@@ -417,7 +418,7 @@ extern "C"
 
 %%
 
-file: objects { $$ = $1; string s = string($$); recycle_garbage(); cout << s; }
+file: objects { $$ = $1; string s = string($$); recycle_garbage(); *out_file << s.data(); }
     | END;
 objects: 
     objects object 
@@ -496,8 +497,18 @@ globals:    GLOBALS BRA global_statements KET
         |   GLOBALS BRA KET
         ;
 
-global_statements:      global_statement
+global_statements: global_statement
+                   {
+                        $$ = $1;
+                   }
                    |    global_statements global_statement
+                   {
+                        stringstream ss;
+                        ss << $1 << " " << $2;
+                        $$ = alloc_string((char*) ss.str().data());
+                        destroy_string($1);
+                        destroy_string($2);
+                   }
                    ;
 
 global_statement: word EQ implicit_expr_stat SEMICOLON;
@@ -537,6 +548,7 @@ element:   extension
             $$ = $1;
         }
         |  word EQ implicit_expr_stat SEMICOLON
+
         |  LOCAL word EQ implicit_expr_stat SEMICOLON
         |  SEMICOLON 
         { 
@@ -686,7 +698,21 @@ word3_list:
 
 words:
      word3_list word
+     {
+        stringstream ss;
+        ss << $1 << " " << $2;
+        $$ = alloc_string((char*) ss.str().data());
+        destroy_string($1);
+        destroy_string($2);
+     }
      | words word
+     {
+        stringstream ss;
+        ss << $1 << " " << $2;
+        $$ = alloc_string((char*) ss.str().data());
+        destroy_string($1);
+        destroy_string($2);
+     }
      ;
 
 switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA
@@ -726,7 +752,8 @@ statement:  BRA statements KET
             if (($2[0]=='-')&&($2[1]=='-'))
             {
                 $$ = grow_string($2,(char*)"\n");
-            } else
+            } 
+            else
             {
                 stringstream ss;
                 ss << "goto "<<$2<<endl;
@@ -1272,32 +1299,41 @@ base_expr:
         $$ = alloc_string(to_expr_analysis($1));
         destroy_string($1);
     }
-    | operand_expr
+    | operand_expr { $$ = $1; }
     | LPAREN operand_expr RPAREN
+    { 
+        stringstream ss;
+        ss << "(" << $1 << ")" << endl;
+        $$ = alloc_string((char*) ss.str().data());
+        destroy_string($1);
+    }
     ;
-operand_expr : unary_expr
-    | binary_expr
-    | conditional_op
+operand_expr : unary_expr { $$ = $1; }
+    | binary_expr { $$ = $1; }
+    | conditional_op { $$ = $1; }
     ;
 binary_expr: base_expr binary_op base_expr 
            { 
-                stringstream ss;
-                ss << $1 << " " << $2 << " " << $3;
-                $$ = alloc_string((char*)ss.str().data());
+                $$ = extract_binary_expr($1, $2, $3);
                 destroy_string($1);
                 destroy_string($2);
                 destroy_string($3);
            };
 unary_expr: unary_op base_expr
           {
-                stringstream ss;
-                ss << $1 << $2;
-                $$ = alloc_string((char*) ss.str().data());
+                $$ = extract_unary_expr($1, $2);
                 destroy_string($1);
                 destroy_string($2);
           }
           ;
-conditional_op : base_expr CONDQUEST base_expr COLON base_expr ;
+conditional_op : base_expr CONDQUEST base_expr COLON base_expr
+          {
+                $$ = extract_conditional_op($1, $3, $5);
+                destroy_string($1);
+                destroy_string($3);
+                destroy_string($5);
+          }
+          ;
 binary_op: logical_binary_op
          {
             $$ = $1;
@@ -1349,38 +1385,45 @@ int main(int argc, char* argv[] )
     std::cout << progname <<" - ael2lua - Started" <<std::endl;
     strcpy(format,"%g\n");
     std::istream* in_file = &std::cin;
-    std::ostream* out_file = &std::cout;    
+    out_file = &std::cout;    
     bool interInput = true;
     bool visualOutput = true;
+    bool delete_infile = false;
+    bool delete_outfile = false;
     if (argc>1)
     {
         in_file = new std::ifstream(argv[1]);
-    if (in_file->fail())
-    {
-        std::cerr << "Unable to open input file : " << argv[1] << std::endl;
-        in_file = &std::cin;        
-    } else 
-    {
-        interInput = false;
-    }
+        delete_infile = true;
+        if (in_file->fail())
+        {
+            std::cerr << "Unable to open input file : " << argv[1] << std::endl;
+            in_file = &std::cin;     
+        }
+        else 
+        {
+            interInput = false;
+        }
     }
     if (argc>2)
     {
         out_file = new std::ofstream(argv[2]);
-    if (out_file->fail())
-    {
-        std::cerr << "Unable to open output file : " << argv[2] << std::endl;
-        out_file = &std::cout;
-    } else 
-    {
-        visualOutput = false;
-    }
+        delete_outfile = true;
+        if (out_file->fail())
+        {
+            std::cerr << "Unable to open output file : " << argv[2] << std::endl;
+            out_file = &std::cout;
+        } 
+        else 
+        {
+            visualOutput = false;
+        }
     }
     std::cout <<"Input Stream : ";
     if (interInput)
     {
         std::cout <<"stdin (interactive mode)" <<std::endl;
-    } else
+    } 
+    else
     {
         std::cout<<argv[1]<<std::endl;
     }
@@ -1388,7 +1431,8 @@ int main(int argc, char* argv[] )
     if (visualOutput)
     {
         std::cout <<"stdout (visual output)" <<std::endl;
-    } else
+    } 
+    else
     {
         std::cout<<argv[2]<<std::endl;
     }
@@ -1396,12 +1440,15 @@ int main(int argc, char* argv[] )
     if (interInput)
     {
         std::cout<<"Now you can write the code ..."<<std::endl;
-    } else 
+    } 
+    else 
     {
         std::cout<<"Processing the file ..."<<std::endl<<"-----------------------------"<<std::endl;
     }
     lexer.switch_streams(in_file,out_file);
     yyparse();
+    if(delete_infile) delete in_file;
+    if(delete_outfile) delete out_file;
     return 0;
 }
 
