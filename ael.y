@@ -21,6 +21,8 @@
 
 #include "utilities.h"
 #include "common.h"
+#include "ss_state.h"
+#include "handlers.h"
 
 using namespace std;
 
@@ -41,299 +43,20 @@ char* to_expr_analysis(char* s)
     return to_ret;
 }
 
-typedef struct {
-    char* value;
-    bool typePattern;
-    bool typeCase;
-} CaseStat;
-
-class SwitchStatementState
-{
-    public:
-    bool initialized;    
-    bool dandlingDefault;
-    std::stack<CaseStat> sstack;
-    SwitchStatementState()
-    {
-        dandlingDefault=0x0;
-        initialized=false;
-    }
-    char* getCompleteText(char* statements)
-    {
-        stringstream ss;
-        int num = this->sstack.size();
-        if (num>0)
-        {
-            if (this->initialized) {
-               ss << "else";
-            } else {
-               this->initialized=true;
-            }
-            ss<<"if ";
-            bool c_s_first=true;
-            stringstream condStream;
-            while(!this->sstack.empty())
-            {
-                if(!c_s_first)
-                {
-                    condStream << " or ";
-                } else 
-                {
-                    c_s_first=false;
-                }
-                if (this->sstack.top().typeCase)
-                {
-                    condStream<<"( switch_var == "<<this->sstack.top().value<<")";
-                } else if (this->sstack.top().typePattern)                
-                {
-                    condStream<<"( string.match(switch_var,\""<<this->sstack.top().value<<"\") ~= nil )";
-                }
-                this->sstack.pop();
-            }
-            if (num>1)
-            {
-                ss <<"("<< condStream.str()<<")";
-            } else {
-                ss << condStream.str();
-            }
-            ss<<" then"<<endl<<statements;
-        }
-        if (dandlingDefault)
-        {
-            ss<<"else "<<endl<<statements;
-        }
-        return alloc_string((char*)ss.str().data());
-    }
-};
-
 yyFlexLexer lexer;
 char format[20];
 string box;
-bool luaExtAllocated=false;
-bool luaHintsAllocated=false;
+int label_idx = 0;
 std::stack<SwitchStatementState> switchStack;
 
 string current_ext;
 string current_context;
 
 string last_context;
-std::vector<std::string> hints;
 
 int yylex(void)
 {
     return lexer.yylex();
-}
-
-typedef struct 
-{
-    char* beginHour;
-    char* endHour;
-    char* beginMinutes;
-    char* endMinutes;
-    char* beginDay;
-    char* endDay;
-    char* beginDOM;
-    char* endDOM;
-    char* beginMonth;
-    char* endMonth;
-
-    void destroyAll()
-    {
-        destroy_string(beginHour);
-        destroy_string(endHour);
-        destroy_string(beginMinutes);
-        destroy_string(endMinutes);
-        destroy_string(beginDay);
-        destroy_string(endDay);
-        destroy_string(beginDOM);
-        destroy_string(endDOM);
-        destroy_string(beginMonth);
-        destroy_string(endMonth);
-    }
-} TimeStruct;
-
-
-
-string time2iftime(TimeStruct* ts)
-{
-    stringstream ss;
-    ss << "temp = os.date()" << endl;
-    ss << "if (";
-    bool first = true;
-    if(ts->beginMonth != "")
-    {
-        ss << "temp.month >= " << ts->beginMonth << ((ts->endMonth != "") ? (" and temp.month < " + string(ts->endMonth)) : "");
-        first = false;
-    }
-    if(ts->beginDOM != "")
-    {
-        if(!first)
-            ss << " and ";
-        ss << "temp.day >= " << ts->beginDOM << ((ts->endDOM != "") ? (" and temp.day < " + string(ts->endDOM)) : "");
-        first = false;
-    }
-    if(ts->beginDay != "")
-    {
-        if(!first)
-            ss << " and ";
-        ss << "temp.wday >= " << ts->beginDay << ((ts->beginDay != "") ? (" and temp.wday < " + string(ts->endDay)) : "");
-        first = false;
-    }
-    if(!first)
-        ss << " and ";
-    ss << "(temp.hour + 0.01 * temp.min) >= " << ts->beginHour << "." << ts->beginMinutes;
-    ss << " and (temp.hour + 0.01 * temp.min) < " << ts->endHour << "." << ts->endMinutes;
-    ss << ") then" << endl;
-    return ss.str();
-}
-
-void handleTimes(char* t1, char* t2, char* t3, char* day, char* md, char* m, TimeStruct* ts)
-{
-    string bh(t1);
-    string em(t3);
-    vector<string> second_word = split(t2, '-');
-    ts->beginHour = alloc_string((char*)trim(bh).data());
-    ts->beginMinutes = alloc_string((char*)trim(second_word[0]).data());
-    ts->endHour = alloc_string((char*)trim(second_word[1]).data());
-    ts->endMinutes = alloc_string((char*)trim(em).data());
-    string dw(day);
-    string dayword(trim(dw));
-    string beginDayString = "";
-    string endDayString = "";
-    if(dayword != "*")
-    {
-        vector<string> days = split(dayword, '-');
-        beginDayString = sday2iday(trim(days[0]));
-        if(days.size() > 1)
-        {
-            endDayString = sday2iday(trim(days[1]));
-        }
-    }
-    ts->beginDay = alloc_string((char*)beginDayString.data());
-    ts->endDay = alloc_string((char*)endDayString.data());
-    string dom(md);
-    string dayOfMonth(trim(dom));
-    string beginDOMString = "";
-    string endDOMString = "";
-    if(dayOfMonth != "*")
-    {
-        vector<string> monthDays = split(dayOfMonth, '-');
-        beginDOMString = trim(monthDays[0]);
-        if(monthDays.size() > 1)
-        {
-            endDOMString = trim(monthDays[1]);
-        }
-    }
-    ts->beginDOM = alloc_string((char*)beginDOMString.data());
-    ts->endDOM = alloc_string((char*)endDOMString.data());
-    string mon(m);
-    string month(trim(mon));
-    string beginMonthString = "";
-    string endMonthString = "";
-    if(month != "*")
-    {
-        vector<string> months = split(month, '-');
-        beginMonthString = smonth2imonth(trim(months[0]));
-        if(months.size() > 1)
-        {
-            endMonthString = smonth2imonth(trim(months[1]));
-        }
-    }
-    ts->beginMonth = alloc_string((char*)beginMonthString.data());
-    ts->endMonth = alloc_string((char*)endMonthString.data());
-}
-
-void handleTimes(char* time, char* day, char* md, char* m, TimeStruct* ts)
-{
-    char* t1;
-    char* t2;
-    char* t3;
-    if(string(time) == "*")
-    {
-        t1 = (char*)"00";
-        t2 = (char*)"00-23";
-        t3 = (char*)"59";
-    }
-    else
-    {
-        vector<string> time_parts = split(time, ':');
-        t1 = (char*) time_parts[0].data();
-        t2 = (char*) time_parts[1].data();
-        t3 = (char*) time_parts[2].data();
-    }
-    handleTimes(t1,t2,t3,day,md,m,ts);
-}
-
-char* handleIf(char* head, char* statement)
-{
-    stringstream ss;
-    ss << head << statement << endl << "end";
-    return alloc_string((char*)ss.str().data());
-}
-
-char* handleIfElse(char* head, char* statement, char* statement2)
-{
-    stringstream ss;
-    ss << head << statement << endl << "else" << endl << statement2 << endl << "end";
-    return alloc_string((char*)ss.str().data());
-}
-
-char* handleIncludedName(char* name)
-{
-    stringstream ss;
-    ss << "\"" << name << "\"";
-    return alloc_string((char*)ss.str().data());
-}
-
-char* handleMacroDef(char* name,char* arglist, char* stats)
-{
-    stringstream ss;
-    ss<<"function "<<name<<"("<<arglist<<")"<<endl;
-    ss<<stats;
-    ss<<"end"<<endl<<endl;
-    return alloc_string((char*)ss.str().data());
-}
-
-char* handleContext(char* name,char* content)
-{
-    stringstream ss; 
-    if (!luaExtAllocated)
-    {
-        luaExtAllocated = true;
-        ss << "extensions = {}"<<endl;
-    }
-    if(!luaHintsAllocated && hints.size())
-    {
-        luaHintsAllocated = true;
-        ss << "hints = {}" << endl;
-    }
-    ss << "extensions." << name << " = "<<endl<<"{"<<endl;
-    if (strlen(content)>0)
-    {
-        ss<<content<<endl;
-    }
-    ss<<"}" << endl<<endl;
-    if(hints.size())
-    {
-        ss << "hints." << name << " = "<<endl<<"{"<<endl;
-        for(int i = 0; i < hints.size(); i++)
-        {
-            ss << hints[i] << endl;
-        }
-        ss << "}" << endl << endl;
-    }
-    hints.clear();
-    return alloc_string((char*)ss.str().data());
-}
-
-vector<string> string_split(const string& s)
-{
-    vector<string> to_ret;
-    istringstream iss(s);
-    copy(istream_iterator<string>(iss),
-        istream_iterator<string>(),
-        back_inserter<vector<string> >(to_ret));
-    return to_ret;
 }
 
 extern "C"
@@ -461,9 +184,17 @@ context:
         $$ = handleContext((char*)"default",(char*)"");
     }
     |   ABSTRACT CONTEXT word BRA elements KET
+    {
+    }
     |   ABSTRACT CONTEXT word BRA KET
+    {
+    }
     |   ABSTRACT CONTEXT DEFAULT BRA elements KET
+    {
+    }
     |   ABSTRACT CONTEXT DEFAULT BRA KET
+    {
+    }
     ;
 
 macro:  MACRO word LPAREN arglist RPAREN BRA macro_statements KET
@@ -494,7 +225,16 @@ macro:  MACRO word LPAREN arglist RPAREN BRA macro_statements KET
 
 
 globals:    GLOBALS BRA global_statements KET
+        {
+            last_context = "globals";
+            $$ = handleContext((char*)"globals", $3);
+            destroy_string($3);
+        }
         |   GLOBALS BRA KET
+        {
+            last_context = "globals";
+            $$ = handleContext((char*)"globals", (char*)"");
+        }
         ;
 
 global_statements: global_statement
@@ -511,7 +251,15 @@ global_statements: global_statement
                    }
                    ;
 
-global_statement: word EQ implicit_expr_stat SEMICOLON;
+global_statement: word EQ implicit_expr_stat SEMICOLON
+                {
+                    stringstream ss;
+                    ss << $1 << "=" << $3 << endl;
+                    $$ = alloc_string((char*)ss.str().data());
+                    destroy_string($1);
+                    destroy_string($3);
+                }
+                ;
 
 
 arglist:    word { $$ = $1; }
@@ -542,14 +290,33 @@ element:   extension
             $$ = $1;
         }
         |  switches
+        {
+            $$ = $1;
+        }
         |  eswitches
+        {
+            $$ = $1;
+        }
         |  ignorepat
         {
             $$ = $1;
         }
         |  word EQ implicit_expr_stat SEMICOLON
-
+        {
+            stringstream ss;
+            ss << $1 << "=" << $3 << endl;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
+        }
         |  LOCAL word EQ implicit_expr_stat SEMICOLON
+        {
+            stringstream ss;
+            ss << $1 << "=" << $3 << endl;
+            $$ = alloc_string((char*)ss.str().data());
+            destroy_string($1);
+            destroy_string($3);
+        }
         |  SEMICOLON 
         { 
             $$ = alloc_string((char*)";"); 
@@ -592,7 +359,7 @@ extension: word ARROW statement
             }
             ss << "[\"" << $5 << "\"] = " << $7;
             $$ = (char*) "";
-            hints.push_back(alloc_string((char*)ss.str().data()));
+            store_hint(alloc_string((char*)ss.str().data()));
             destroy_string($3);
             destroy_string($5);
             destroy_string($7);
@@ -607,7 +374,7 @@ extension: word ARROW statement
             }
             ss << "[\"" << $6 << "\"] = " << $8;
             $$ = (char*)"";
-            hints.push_back(alloc_string((char*)ss.str().data()));
+            store_hint(alloc_string((char*)ss.str().data()));
             destroy_string($4);
             destroy_string($6);
             destroy_string($8);
@@ -778,7 +545,8 @@ statement:  BRA statements KET
         | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
         {
             stringstream ss;
-            ss << "for " << $3 << ", " << $5 << ", " << $7 << " do " << endl << $9 << endl << "end";
+            ss << "for " << $3 << ", " << $5 << ", " << $7 << " do " << endl << "::label" << label_idx << "::" << endl << $9 << endl << "end";
+            label_idx++;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($3);
             destroy_string($5);
@@ -788,7 +556,8 @@ statement:  BRA statements KET
         | WHILE LPAREN implicit_expr_stat RPAREN statement
         {
             stringstream ss;
-            ss << "while " << $3 << "do" << endl << $5 << endl << "end";
+            ss << "while " << $3 << "do" << endl << $5 << endl << "::label" << label_idx << "::" << endl << "end";
+            label_idx++;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($3);
             destroy_string($5);
@@ -838,6 +607,11 @@ statement:  BRA statements KET
             $$ = alloc_string((char*)"return\n");
         }
         | CONTINUE SEMICOLON
+        {
+            stringstream ss;
+            ss << "goto label" << label_idx << "\n";
+            $$ = alloc_string((char*) ss.str().data());
+        }
         | random_head statement
         {
             $$ = handleIf($1,$2);
@@ -1156,16 +930,43 @@ macro_statement: statement
         ;
 
 switches: SWITCHES BRA switchlist KET
+        {
+            last_context = "switches";
+            $$ = handleContext((char*)"switches",$3);
+            destroy_string($3);
+        }
        | SWITCHES BRA KET
+       {
+            last_context = "switches";
+            $$ = handleContext((char*)"switches",(char*)"");
+       }
        ;
 
 eswitches: ESWITCHES BRA switchlist KET
-       | ESWITCHES BRA  KET
+       {
+            last_context = "eswitches";
+            $$ = handleContext((char*)"eswitches",$3);
+            destroy_string($3);
+       }
+       | ESWITCHES BRA KET
+       {
+            last_context = "eswitches";
+            $$ = handleContext((char*)"eswitches",(char*)"");
+       }
        ;
 
 switchlist: word SEMICOLON
-       | switchlist word SEMICOLON
-       ;
+          {
+                $$ = $1;
+          }
+          | switchlist word SEMICOLON
+          {
+                stringstream ss;
+                ss << $1 << endl << $2;
+                $$ = alloc_string((char*)ss.str().data());
+                destroy_string($1);
+          }
+          ;
 
 includeslist: 
        includedname SEMICOLON

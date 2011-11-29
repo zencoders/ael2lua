@@ -1,6 +1,8 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <iostream>
+#include <iterator>
 #include <algorithm>
 #include "utilities.h"
 
@@ -37,6 +39,16 @@ std::vector<std::string> split(const std::string& s, char delim)
 {
     std::vector<std::string> elems;
     return split(s, delim, elems);
+}
+
+vector<string> string_split(const string& s)
+{
+    vector<string> to_ret;
+    istringstream iss(s);
+    copy(istream_iterator<string>(iss),
+        istream_iterator<string>(),
+        back_inserter<vector<string> >(to_ret));
+    return to_ret;
 }
 
 std::string sday2iday(const std::string& s)

@@ -4,9 +4,9 @@ PROGRAM=ael
 YACC=bison
 YFLAGS=-d
 
-OBJS=ael.tab.o lex.yy.o expr.tab.o lex.exp.o common.o utilities.o
+OBJS=ael.tab.o lex.yy.o expr.tab.o lex.exp.o common.o utilities.o handlers.o
 
-SRCS=ael.tab.c lex.yy.cc expr.tab.c lex.exp.cc common.c utilities.cc
+SRCS=ael.tab.c lex.yy.cc expr.tab.c lex.exp.cc common.c utilities.cc handlers.cc
 
 all: $(PROGRAM)
 

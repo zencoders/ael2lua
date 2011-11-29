@@ -17,4 +17,6 @@ std::string sday2iday(const std::string& s);
 std::string smonth2imonth(const std::string& s);
 
 bool isNumeric( const char* pszInput, int nNumberBase );
+
+std::vector<std::string> string_split(const std::string& s);
 #endif
