@@ -46,6 +46,9 @@ char* to_expr_analysis(char* s)
 yyFlexLexer lexer;
 char format[20];
 string box;
+string last_block;
+string last_block2;
+bool is_block = false;
 int label_idx = 0;
 std::stack<SwitchStatementState> switchStack;
 
@@ -495,7 +498,12 @@ switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA
 statement:  BRA statements KET
         {
             stringstream ss;
-            ss << "function()"<<endl<<$2<<"end;";
+            ss << "function()"<<endl<<$2<<"end" << endl;
+            if(!is_block)
+                last_block = string($2);
+            else
+                last_block2 = string($2);
+            is_block = true;
             $$ = alloc_string((char*)ss.str().data());
         }
         | word EQ implicit_expr_stat SEMICOLON
@@ -545,7 +553,17 @@ statement:  BRA statements KET
         | FOR LPAREN implicit_expr_stat SEMICOLON implicit_expr_stat SEMICOLON implicit_expr_stat RPAREN statement
         {
             stringstream ss;
-            ss << "for " << $3 << ", " << $5 << ", " << $7 << " do " << endl << "::label" << label_idx << "::" << endl << $9 << endl << "end";
+            string lb;
+            if(is_block)
+            {
+                lb = string(last_block);
+                is_block = false;
+            }
+            else
+            {
+                lb = string($9);
+            }
+            ss << "for " << $3 << ", " << $5 << ", " << $7 << " do " << endl << "::label" << label_idx << "::" << endl << lb << endl << "end" << endl;
             label_idx++;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($3);
@@ -556,7 +574,17 @@ statement:  BRA statements KET
         | WHILE LPAREN implicit_expr_stat RPAREN statement
         {
             stringstream ss;
-            ss << "while " << $3 << "do" << endl << $5 << endl << "::label" << label_idx << "::" << endl << "end";
+            string lb;
+            if(is_block)
+            {
+                lb = string(last_block);
+                is_block = false;
+            }
+            else
+            {
+                lb = string($5);
+            }
+            ss << "while " << $3 << "do" << endl << lb << endl << "::label" << label_idx << "::" << endl << "end" << endl;
             label_idx++;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($3);
@@ -586,7 +614,7 @@ statement:  BRA statements KET
         {
             stringstream ss;
             string ac = string($1).substr(4,strlen($1)-4);
-            ss << "channel." << ac << ":set(" << $3 << ")";
+            ss << "channel." << ac << ":set(" << $3 << ")" << endl;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
             destroy_string($3);
@@ -614,39 +642,109 @@ statement:  BRA statements KET
         }
         | random_head statement
         {
-            $$ = handleIf($1,$2);
+            string lb;
+            if(is_block)
+            {
+                lb = string(last_block);
+                is_block = false;
+            }
+            else
+            {
+                lb = string($2);
+            }
+            $$ = handleIf($1,(char*)lb.data());
             destroy_string($1);
             destroy_string($2);
         }
         | random_head statement ELSE statement
         {
-            $$ = handleIfElse($1, $2, $4);
+            string lb;
+            string lb2;
+            if(is_block)
+            {
+                lb = string(last_block);
+                lb2 = string(last_block2);
+                is_block = false;
+            }
+            else
+            {
+                lb = string($2);
+                lb2 = string($4);
+            }
+            $$ = handleIfElse($1, (char*)lb.data(), (char*)lb2.data());
             destroy_string($1);
             destroy_string($2);
             destroy_string($4);
         }
         | if_head statement
         {
-            $$ = handleIf($1,$2);
+            string lb;
+            if(is_block)
+            {
+                lb = string(last_block);
+                is_block = false;
+            }
+            else
+            {
+                lb = string($2);
+            }
+            $$ = handleIf($1,(char*)lb.data());
             destroy_string($1);
             destroy_string($2);
         }
         | if_head statement ELSE statement
         {
-            $$ = handleIfElse($1, $2, $4);
+            string lb;
+            string lb2;
+            if(is_block)
+            {
+                lb = string(last_block);
+                lb2 = string(last_block2);
+                is_block = false;
+            }
+            else
+            {
+                lb = string($2);
+                lb2 = string($4);
+            }
+            $$ = handleIfElse($1, (char*)lb.data(), (char*)lb2.data());
             destroy_string($1);
             destroy_string($2);
             destroy_string($4);
         }
         | ifTime_head statement
         {
-            $$ = handleIf($1,$2);
+            string lb;
+            if(is_block)
+            {
+                lb = string(last_block);
+                is_block = false;
+            }
+            else
+            {
+                lb = string($2);
+            }
+
+            $$ = handleIf($1,(char*)lb.data());
             destroy_string($1);
             destroy_string($2);
         }
         | ifTime_head statement ELSE statement
         {
-            $$ = handleIfElse($1, $2, $4);
+            string lb;
+            string lb2;
+            if(is_block)
+            {
+                lb = string(last_block);
+                lb2 = string(last_block2);
+                is_block = false;
+            }
+            else
+            {
+                lb = string($2);
+                lb2 = string($4);
+            }
+            $$ = handleIfElse($1, (char*)lb.data(), (char*)lb2.data());
             destroy_string($1);
             destroy_string($2);
             destroy_string($4);
@@ -1112,7 +1210,16 @@ base_expr:
 operand_expr : unary_expr { $$ = $1; }
     | binary_expr { $$ = $1; }
     | conditional_op { $$ = $1; }
+    | assign_expr { $$ = $1; }
     ;
+assign_expr: word EQ base_expr
+           {
+                stringstream ss;
+                ss << $1 << "=" << $3;
+                $$ = alloc_string((char*)ss.str().data());
+                free($1);
+                destroy_string($3);
+           }
 binary_expr: base_expr binary_op base_expr 
            { 
                 $$ = extract_binary_expr($1, $2, $3);
@@ -1159,6 +1266,7 @@ arith_binary_op : PLUS { $$ = alloc_string((char*)"+"); }
                 | DIV { $$ = alloc_string((char*)"/"); }
                 | MOD { $$ = alloc_string((char*)"%"); }
                 ;
+
 unary_op : logical_unary_op { $$ = $1; }
     | arith_unary_op { $$ = $1; }
     ;

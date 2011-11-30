@@ -94,8 +94,20 @@ file: base_expr
 
 base_expr:
     coll_words
+    {
+        $$ = $1;
+    }
     | operand_expr
+    {
+        $$ = $1;
+    }
     | LPAREN operand_expr RPAREN
+    {
+        stringstream ss;
+        ss << "(" << $2 << ")";
+        $$ = alloc_string((char*) ss.str().data());
+        destroy_string($1);
+    }
     ;
 
 coll_words:
@@ -138,7 +150,18 @@ coll_word:
 operand_expr : unary_expr { $$ = $1; }
     | binary_expr { $$ = $1; }
     | conditional_op { $$ = $1; }
+    | assign_expr { $$ = $1; }
     ;
+
+assign_expr: NOVAR_WORD EQ base_expr
+           {
+                stringstream ss;
+                ss << $1 << "=" << $3;
+                $$ = alloc_string((char*)ss.str().data());
+                free($1);
+                destroy_string($3);
+           }
+
 binary_expr: base_expr binary_op base_expr 
            { 
                 $$ = extract_binary_expr($1, $2, $3);
