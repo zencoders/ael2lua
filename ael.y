@@ -38,7 +38,7 @@ char* to_expr_analysis(char* s)
     else
     {
         string ss = analyze_expression(s);
-        to_ret = (char*) ss.data();
+        to_ret = alloc_string((char*)ss.data());
     }
     return to_ret;
 }
@@ -121,7 +121,6 @@ extern "C"
 %token CATCH
 %token WORD
 %token COLLECTED_WORD
-%token VARBEGIN
 %token VARNAME
 %token EXPRINIT
 %token RSBRA
@@ -139,6 +138,7 @@ extern "C"
 %token LOGNOT
 %token LIKEOP
 %token CONDQUEST
+%token COMMENT
 
 %token END 0 "end of file"
 
@@ -163,6 +163,7 @@ object:
     |   macro { $$ = $1; } 
     |   globals { $$ = $1; }
     |   SEMICOLON { $$ = alloc_string((char*)";"); }
+    |   COMMENT { ;};
     ;
 
 context:  
@@ -475,6 +476,15 @@ words:
         destroy_string($1);
         destroy_string($2);
      }
+     | word binary_op word
+     {
+        stringstream ss;
+        ss << $1 << $2 << $3;
+        $$ = alloc_string((char*) ss.str().data());
+        destroy_string($1);
+        destroy_string($2);
+        destroy_string($3);
+     }
      | words word
      {
         stringstream ss;
@@ -482,6 +492,15 @@ words:
         $$ = alloc_string((char*) ss.str().data());
         destroy_string($1);
         destroy_string($2);
+     }
+     | words binary_op word
+     {
+        stringstream ss;
+        ss << $1 << $2 << $3;
+        $$ = alloc_string((char*) ss.str().data());
+        destroy_string($1);
+        destroy_string($2);
+        destroy_string($3);
      }
      ;
 
@@ -1172,16 +1191,15 @@ explicit_expr_stat : EXPRINIT implicit_expr_stat RSBRA
                         $$ = $2;
                    }
                    ;
-implicit_expr_stat : base_expr { $$ = $1; };
+implicit_expr_stat : base_expr
+                   { 
+                        $$ = $1; 
+                   };
 
 base_expr: 
     explicit_expr_stat
     {
         $$ = $1;
-    }
-    | variable
-    {
-        $$ = extract_variable($1);
     }
     | collected_word
     {
@@ -1198,13 +1216,20 @@ base_expr:
         $$ = alloc_string(to_expr_analysis($1));
         destroy_string($1);
     }
-    | operand_expr { $$ = $1; }
+    | operand_expr
+    { 
+        $$ = $1; 
+    }
     | LPAREN operand_expr RPAREN
     { 
         stringstream ss;
         ss << "(" << $1 << ")" << endl;
         $$ = alloc_string((char*) ss.str().data());
         destroy_string($1);
+    }
+    | application_call
+    {
+        $$ = $1;
     }
     ;
 operand_expr : unary_expr { $$ = $1; }
@@ -1250,6 +1275,10 @@ binary_op: logical_binary_op
          {
             $$ = $1;
          }
+         | special_binary_op
+         {
+            $$ = $1;
+         }
          ;
 logical_binary_op : PIPE { $$ = alloc_string((char*)"|"); }
                   | AND { $$ = alloc_string((char*)"&"); }
@@ -1266,14 +1295,32 @@ arith_binary_op : PLUS { $$ = alloc_string((char*)"+"); }
                 | DIV { $$ = alloc_string((char*)"/"); }
                 | MOD { $$ = alloc_string((char*)"%"); }
                 ;
-
+special_binary_op : AT 
+                  { 
+                    $$ = alloc_string((char*) "@"); 
+                  }
+                  | COLON
+                  {
+                    $$ = alloc_string((char*) ":");
+                  };
 unary_op : logical_unary_op { $$ = $1; }
     | arith_unary_op { $$ = $1; }
     ;
 logical_unary_op : LOGNOT { $$ = alloc_string((char*) "!"); };
 arith_unary_op : MINUS { $$ = alloc_string((char*) "-"); };
-variable: VARNAME { $$ = alloc_string($1); free($1); };
-word: WORD { $$ = alloc_string($1); free($1); };
+word: WORD 
+    { 
+        $$ = alloc_string($1); free($1); 
+    }
+    | VARNAME
+    {
+        $$ = extract_variable($1); free($1);
+    }
+    | DEFAULT
+    {
+        $$ = alloc_string((char*)"default");
+    }
+    ;
 collected_word: COLLECTED_WORD { $$ = alloc_string($1); free($1); };
 
 %%

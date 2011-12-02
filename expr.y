@@ -18,6 +18,7 @@ using namespace std;
 #define YYSTYPE char*
 
 expFlexLexer explexer;
+string analyze_expression(const string& s);
 
 int expFlexLexer::explex(void)
 {
@@ -59,7 +60,6 @@ int yywrap() { return 1; }
 %token AND
 %token WORD
 %token COLLECTED_WORD
-%token VARBEGIN
 %token EXPRINIT
 %token RSBRA
 %token NOTEQ
@@ -134,14 +134,33 @@ coll_word:
          | NUM
          {
             stringstream ss;
-            ss << "\"" << $1 << "\"";
+            string s = string($1);
+            if(s.size() > 0 && s[0] != '\"' && s[s.size()-1] != '\"')
+                ss << "\"" << $1 << "\"";
+            else
+                ss << $1;
             $$ = alloc_string((char*) ss.str().data());
             free($1);
          }
          | NOVAR_WORD
          {
             stringstream ss;
-            ss << "\"" << $1 << "\"";
+            string s = string($1);
+            if((s.size() > 0 && s[0] != '\"' && s[s.size()-1] != '\"') &&
+                (s.find("=") == string::npos) &&
+                (s.find(">") == string::npos) &&
+                (s.find("<") == string::npos) &&
+                (s.find(">=") == string::npos) &&
+                (s.find("<=") == string::npos) &&
+                (s.find("==") == string::npos) &&
+                (s.find("+") == string::npos) &&
+                (s.find("-") == string::npos) &&
+                (s.find("*") == string::npos) &&
+                (s.find("/") == string::npos)
+            )
+                ss << "\"" << $1 << "\"";
+            else
+                ss << $1;
             $$ = alloc_string((char*) ss.str().data());
             free($1);
          }
@@ -192,6 +211,10 @@ binary_op: logical_binary_op
          {
             $$ = $1;
          }
+         | special_binary_op
+         {
+            $$ = $1;
+         }
          ;
 logical_binary_op : PIPE { $$ = alloc_string((char*)"|"); }
                   | AND { $$ = alloc_string((char*)"&"); }
@@ -208,6 +231,14 @@ arith_binary_op : PLUS { $$ = alloc_string((char*)"+"); }
                 | DIV { $$ = alloc_string((char*)"/"); }
                 | MOD { $$ = alloc_string((char*)"%"); }
                 ;
+special_binary_op : AT 
+                  { 
+                    $$ = alloc_string((char*) "@"); 
+                  }
+                  | COLON
+                  {
+                    $$ = alloc_string((char*) ":");
+                  };
 unary_op : logical_unary_op { $$ = $1; }
     | arith_unary_op { $$ = $1; }
     ;

@@ -9,8 +9,9 @@ char *p;
 extern int yywrap(void);
 %}
 
+COMMENT \/\/[^\n]*
 WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
-COLLECTED_WORD (\".*\")|(\$\[.*\])
+COLLECTED_WORD (\".*\")|(\$\[[^\]]*\])
 VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 
 %%
@@ -55,7 +56,6 @@ VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 "continue"  { /*printf("CONTINUE\n");*/return CONTINUE; }
 "catch"     { /*printf("CATCH\n");*/return CATCH; }
 
-"${"	    { /*printf("VARBEGIN\n");*/return VARBEGIN;}
 "$["	    { /*printf("EXPRINIT\n");*/return EXPRINIT;}
 "!="	    { /*printf("NOTEQ\n");*/return NOTEQ; }
 "=="        {/*printf("EQUAL\n");*/return EQUAL;}
@@ -96,6 +96,7 @@ VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
         return WORD; 
     }
 
+{COMMENT} { }
 \n  { }
 [ \t]+  { }
 %%

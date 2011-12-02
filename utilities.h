@@ -1,6 +1,7 @@
 #ifndef _UTILITIES_H_
 #define _UTILITIES_H_
 #include <string>
+#include <vector>
 
 std::string& ltrim(std::string &s);
 

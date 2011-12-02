@@ -11,8 +11,8 @@ extern int expwrap(void);
 %}
 
 NUM [0-9]+ 
-NOVAR_WORD (\$[-a-zA-Z0-9"_/.!\*\+\<\>#$}\[\]]|\{[-a-zA-Z0-9"_/.!\*\+\<\>#\$\{}\[\]]|[-a-zA-Z0-9"_/.!\*\+\<\>#}\[\]])*
-VAR $\{[-a-zA-Z][-a-zA-Z0-9]*\}
+NOVAR_WORD (\$[-a-zA-Z0-9"_/.!\*\+@:\<\>#$}\[\]]|\{[-a-zA-Z0-9"_/.!\*\+@:\<\>#\$\{}\[\]]|[-a-zA-Z0-9"_/.!\*\+@:\<\>#}\[\]])*
+VAR \$\{[^\$\}]*(\$\{[^\$\}]*\})*[^\$\}]*\}
 
 %%
 
@@ -29,7 +29,6 @@ VAR $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 \|          { /*printf("PIPE\n");*/return PIPE; }
 @           { /*printf("AT\n");*/return AT; }
 &           { /*printf("AND\n");*/return AND; }
-"${"	    { /*printf("VARBEGIN\n");*/return VARBEGIN;}
 "$["	    { /*printf("EXPRINIT\n");*/return EXPRINIT;}
 "!="	    { /*printf("NOTEQ\n");*/return NOTEQ; }
 "=="        { /*printf("EQUAL\n");*/return EQUAL;}

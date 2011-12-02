@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string>
 #include <sstream>
+#include "utilities.h"
 
 std::set<char*> garbage;
 
@@ -30,7 +31,7 @@ void recycle_garbage()
     std::set<char*>::iterator it;
     for(it = garbage.begin(); it != garbage.end(); it++)
     {
-        destroy_string((*it));
+        free(*it);
     }
     garbage.clear();
 }
@@ -57,11 +58,41 @@ char* extract_variable(char* s)
     char* to_ret;
     if(var.size() > 3)
     {
-        to_ret = alloc_string((char*)var.substr(2,var.size()-3).data());
+        if(s[0] == '$' && s[1] == '{')
+        {
+            size_t colon_pos = var.find(':');
+            if(colon_pos != std::string::npos)
+            {
+                std::string head = var.substr(2, colon_pos - 2);
+                std::string tail = var.substr(colon_pos + 1, var.size() - 2 - colon_pos);
+                tail = extract_variable((char*)tail.data());
+                std::stringstream ss;
+                ss << head << "[" << tail << "]";
+                to_ret = alloc_string((char*)ss.str().data());
+            }
+            else
+            {
+                to_ret = alloc_string((char*)var.substr(2,var.size()-3).data());
+            }
+        }
+        else
+        {
+            std::stringstream ss;
+            if(!isNumeric(s,10))
+                ss << "\"" << s << "\"";
+            else
+                ss << s;
+            to_ret = alloc_string((char*)ss.str().data());
+        }
     }
     else
     {
-        to_ret = alloc_string((char*)"");
+        std::stringstream ss;
+        if(!isNumeric(s,10))
+            ss << "\"" << s << "\"";
+        else
+            ss << s;
+        to_ret = alloc_string((char*)ss.str().data());
     }
     return to_ret;
 }
