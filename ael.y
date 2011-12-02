@@ -915,7 +915,8 @@ macro_call: word LPAREN eval_arglist RPAREN
 application_call_head: word  LPAREN 
         { 
             stringstream ss;
-            $1[0] = tolower($1[0]);
+            if(!isupper($1[1]))
+                $1[0] = tolower($1[0]);
             ss << "app." << $1 << "(";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
