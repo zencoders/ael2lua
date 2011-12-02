@@ -9,7 +9,7 @@ char *p;
 extern int yywrap(void);
 %}
 
-COMMENT \/\/[^\n]*
+COMMENT \/\/[^\n]*$
 WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
 COLLECTED_WORD (\".*\")|(\$\[[^\]]*\])
 VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}

@@ -138,7 +138,6 @@ extern "C"
 %token LOGNOT
 %token LIKEOP
 %token CONDQUEST
-%token COMMENT
 
 %token END 0 "end of file"
 
@@ -163,7 +162,6 @@ object:
     |   macro { $$ = $1; } 
     |   globals { $$ = $1; }
     |   SEMICOLON { $$ = alloc_string((char*)";"); }
-    |   COMMENT { ;};
     ;
 
 context:  
