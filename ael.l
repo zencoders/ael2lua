@@ -1,4 +1,5 @@
 %option noyywrap
+%option yylineno
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,11 +8,18 @@
 char *p;
 
 extern int yywrap(void);
+
+/* handle locations */
+int yycolumn = 1;
+
+#define YY_USER_ACTION yylloc.first_line = yylloc.last_line = yylineno; \
+    yylloc.first_column = yycolumn; yylloc.last_column = yycolumn+yyleng-1; \
+    yycolumn += yyleng;
+
 %}
 
 COMMENT \/\/[^\n]*$
 WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
-COLLECTED_WORD (\".*\")|(\$\[[^\]]*\])
 VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 
 %%
@@ -80,14 +88,6 @@ VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 	    return VARNAME;
 	    }
 
-{COLLECTED_WORD}      { 
-        /*printf("WORD (%s)\n",yytext);*/
-        p=(char*) calloc(strlen(yytext)+1,sizeof(char));
-        strcpy(p, yytext);
-        yylval = (YYSTYPE)p;
-        return COLLECTED_WORD; 
-    }
-
 {WORD}      { 
         /*printf("WORD (%s)\n",yytext);*/
         p=(char*) calloc(strlen(yytext)+1,sizeof(char));
@@ -96,8 +96,19 @@ VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
         return WORD; 
     }
 
-{COMMENT} { }
-\n  { }
-[ \t]+  { }
+{COMMENT} { 
+                yycolumn = 1;
+          }
+\n  { 
+        yycolumn = 1;
+    }
+[ \t]+  { 
+            
+        }
+
 %%
 
+/*void yyerror(char *s)
+{
+     printf("%d: %s at %s in this line:\n%s\n", lineno, s, yytext, linebuf);
+}*/

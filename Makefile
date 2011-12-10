@@ -20,10 +20,10 @@ expr.tab.c: expr.y
 	$(YACC) -p exp --verbose --debug $(YFLAGS) expr.y
 
 lex.yy.cc: ael.l
-	$(LEX) --c++ ael.l
+	$(LEX) --c++ --yylineno ael.l
 
 lex.exp.cc: expr.l
-	$(LEX) --c++ expr.l
+	$(LEX) --c++ --yylineno expr.l
 
 ael: $(OBJS)
 	$(CC) -g $(OBJS) -o $@ -lfl

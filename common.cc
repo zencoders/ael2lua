@@ -114,6 +114,6 @@ char* extract_unary_expr(char* a, char* b)
 char* extract_conditional_op(char* a, char* b, char* c)
 {
     std::stringstream ss;
-    ss << "if " << a << " then " << b << " else " << c << " end";
+    ss << "if " << a << " then " << b << " else " << c << " end;";
     return alloc_string((char*) ss.str().data());
 }

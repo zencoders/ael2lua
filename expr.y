@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <cstring>
 #include <string>
 #include <sstream>
@@ -31,7 +32,7 @@ int explex(void)
 }
 
 int expparse(void);
-void experror(char*);
+void experror(char*,...);
 FILE* expin;
 FILE* expout;
 stringstream output;
@@ -152,11 +153,7 @@ coll_word:
                 (s.find("<") == string::npos) &&
                 (s.find(">=") == string::npos) &&
                 (s.find("<=") == string::npos) &&
-                (s.find("==") == string::npos) &&
-                (s.find("+") == string::npos) &&
-                (s.find("-") == string::npos) &&
-                (s.find("*") == string::npos) &&
-                (s.find("/") == string::npos)
+                (s.find("==") == string::npos)
             )
                 ss << "\"" << $1 << "\"";
             else
@@ -259,10 +256,29 @@ string analyze_expression(const string& s)
     return to_ret;
 }
 
-void experror( char* s )
+void
+experror(char *s, ...)
 {
-    //fprintf( stderr, "ERROR: %s\n", s);
-    fprintf(stderr,"ERROR : %s", s );
-    expparse();
+  va_list ap;
+  va_start(ap, s);
+
+  if(explloc.first_line)
+    fprintf(stderr, "%d.%d-%d.%d: error: ", explloc.first_line, explloc.first_column,
+        explloc.last_line, explloc.last_column);
+  vfprintf(stderr, s, ap);
+  fprintf(stderr, "\n");
+
 }
 
+void
+lexperror(YYLTYPE t, char *s, ...)
+{
+  va_list ap;
+  va_start(ap, s);
+
+  if(t.first_line)
+    fprintf(stderr, "%d.%d-%d.%d: error: ", t.first_line, t.first_column,
+        t.last_line, t.last_column);
+  vfprintf(stderr, s, ap);
+  fprintf(stderr, "\n");
+}

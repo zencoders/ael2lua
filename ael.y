@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <cstring>
 #include <string>
 #include <sstream>
@@ -65,7 +66,7 @@ int yylex(void)
 extern "C"
 {
     int yyparse(void);
-    void yyerror(string);
+    void yyerror(char*, ...);
     FILE* yyin;
     FILE* yyout;
     ostream* out_file;
@@ -120,7 +121,6 @@ extern "C"
 %token CONTINUE
 %token CATCH
 %token WORD
-%token COLLECTED_WORD
 %token VARNAME
 %token EXPRINIT
 %token RSBRA
@@ -197,6 +197,7 @@ context:
     |   ABSTRACT CONTEXT DEFAULT BRA KET
     {
     }
+    | error KET
     ;
 
 macro:  MACRO word LPAREN arglist RPAREN BRA macro_statements KET
@@ -228,14 +229,10 @@ macro:  MACRO word LPAREN arglist RPAREN BRA macro_statements KET
 
 globals:    GLOBALS BRA global_statements KET
         {
-            last_context = "globals";
-            $$ = handleContext((char*)"globals", $3);
-            destroy_string($3);
+            $$ = $3;
         }
         |   GLOBALS BRA KET
         {
-            last_context = "globals";
-            $$ = handleContext((char*)"globals", (char*)"");
         }
         ;
 
@@ -261,6 +258,7 @@ global_statement: word EQ implicit_expr_stat SEMICOLON
                     destroy_string($1);
                     destroy_string($3);
                 }
+                | error SEMICOLON
                 ;
 
 
@@ -323,6 +321,7 @@ element:   extension
         { 
             $$ = alloc_string((char*)";"); 
         }
+        | error SEMICOLON
         ;
 
 ignorepat: IGNOREPAT ARROW word SEMICOLON
@@ -515,7 +514,7 @@ switch_head: SWITCH LPAREN implicit_expr_stat RPAREN  BRA
 statement:  BRA statements KET
         {
             stringstream ss;
-            ss << "function()"<<endl<<$2<<"end" << endl;
+            ss << "function()"<<endl<<$2<<"end;" << endl;
             if(!is_block)
                 last_block = string($2);
             else
@@ -548,7 +547,7 @@ statement:  BRA statements KET
             else
             {
                 stringstream ss;
-                ss << "goto "<<$2<<endl;
+                ss << "app.goto"<<$2<<endl;
                 $$ = alloc_string((char*)ss.str().data());
                 destroy_string($2);
             }
@@ -580,7 +579,7 @@ statement:  BRA statements KET
             {
                 lb = string($9);
             }
-            ss << "for " << $3 << ", " << $5 << ", " << $7 << " do " << endl << "::label" << label_idx << "::" << endl << lb << endl << "end" << endl;
+            ss << "for " << $3 << ", " << $5 << ", " << $7 << " do " << endl << "::label" << label_idx << "::" << endl << lb << endl << "end;" << endl;
             label_idx++;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($3);
@@ -601,7 +600,7 @@ statement:  BRA statements KET
             {
                 lb = string($5);
             }
-            ss << "while " << $3 << "do" << endl << lb << endl << "::label" << label_idx << "::" << endl << "end" << endl;
+            ss << "while " << $3 << "do" << endl << lb << endl << "::label" << label_idx << "::" << endl << "end;" << endl;
             label_idx++;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($3);
@@ -609,12 +608,12 @@ statement:  BRA statements KET
         }
         | switch_head KET
         {
-            $$ = grow_string($1,(char*)"end\n");
+            $$ = grow_string($1,(char*)"end;\n");
         }
         | switch_head case_statements KET
         {
             stringstream ss;           
-            ss << $1 << $2 <<"end"<<endl<<"end"<<endl;
+            ss << $1 << $2 <<"end;"<<endl<<"end;"<<endl;
             $$ = alloc_string((char*)ss.str().data());                                           
             //destroy_string($1);
             switchStack.pop();
@@ -767,6 +766,8 @@ statement:  BRA statements KET
             destroy_string($4);
         }
         | SEMICOLON
+        | error SEMICOLON
+        | error KET
        ;
 
 target: word
@@ -777,19 +778,27 @@ target: word
         | word PIPE word
         {
             //GOTO LABEL IN DIFFERENT EXTENSION : Not Supported
+            string s($3);
             stringstream ss;
-            ss << "-- (ael2lua warning) goto a label on a different extension is not supported (original AEL2 target : ";
-            ss << $1 << "|" << $3<<")";
+            if(isNumeric(s.data(),10))
+            {
+                ss << "(" << $1 << "," << $3 << ")";
+            }
+            else
+            {
+                ss << "-- (ael2lua warning) goto a label on a different extension is not supported (original AEL2 target : ";
+                ss << $1 << "|" << $3<<")";
+            }
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
             destroy_string($3);
         }   
         | word PIPE word PIPE word
         {
-            //GOTO LABEL IN DIFFERENT CONTEXT AND EXTENSION : Not Supported
             stringstream ss;
-            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
-            ss << $1 << "|" << $3<<"|"<<$5<<")";
+//            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
+//            ss << $1 << "|" << $3<<"|"<<$5<<")";
+            ss << "(" << $1 << "," << $3 << "," << $5 << ")";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
             destroy_string($3);
@@ -799,8 +808,9 @@ target: word
         {
               //GOTO LABEL IN DIFFERENT CONTEXT AND EXTENSION : Not Supported
             stringstream ss;
-            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
-            ss << "default" << "|" << $3<<"|"<<$5<<")";
+//            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
+//            ss << "default" << "|" << $3<<"|"<<$5<<")";
+            ss << "(default," << $3 << "," << $5 << ")";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($3);
             destroy_string($5);
@@ -809,9 +819,17 @@ target: word
         | word COMMA word
         {
             //GOTO LABEL IN DIFFERENT EXTENSION : Not Supported
+            string s($3);
             stringstream ss;
-            ss << "-- (ael2lua warning) goto a label on a different extension is not supported (original AEL2 target : ";
-            ss << $1 << "," << $3<<")";
+            if(isNumeric(s.data(),10))
+            {
+                ss << "(" << $1 << "," << $3 << ")";
+            }
+            else
+            {
+                ss << "-- (ael2lua warning) goto a label on a different extension is not supported (original AEL2 target : ";
+                ss << $1 << "|" << $3<<")";
+            }
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
             destroy_string($3);
@@ -821,8 +839,9 @@ target: word
         {
             //GOTO LABEL IN DIFFERENT CONTEXT AND EXTENSION : Not Supported
             stringstream ss;
-            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
-            ss << $1 << "," << $3<<","<<$5<<")";
+         //   ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
+         //   ss << $1 << "," << $3<<","<<$5<<")";
+            ss << "(" << $1 << "," << $3 << "," << $5 << ")";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
             destroy_string($3);
@@ -832,8 +851,9 @@ target: word
         {
             //GOTO LABEL IN DIFFERENT CONTEXT AND EXTENSION : Not Supported
             stringstream ss;
-            ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
-            ss << "default" << "," << $3<<","<<$5<<")";
+        //    ss << "-- (ael2lua warning) goto a label on a different extension and/or context is not supported (original AEL2 target : ";
+        //    ss << "default" << "," << $3<<","<<$5<<")";
+            ss << "(default," << $3 << "," << $5 << ")";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($3);
             destroy_string($5);
@@ -877,7 +897,7 @@ jumptarget: word
             destroy_string($1);
             destroy_string($2);
         }
-        | word COMMA word AT DEFAULT
+/*        | word COMMA word AT DEFAULT
         {
            //JUMP TO LABEL (DIFFERENT EXTENSION AND CONTEXT);
            stringstream ss;
@@ -885,15 +905,15 @@ jumptarget: word
            $$ = alloc_string((char*)ss.str().data());
            destroy_string($1);
            destroy_string($3);
-        }
-        | word AT DEFAULT
+        }*/
+/*        | word AT DEFAULT
         {
             //JUMP TO EXTENSION : supported
             stringstream ss;
             ss << "\"default\",\""<<$1<<"\",1";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
-        }
+        }*/
         ;
 
 macro_call: word LPAREN eval_arglist RPAREN
@@ -932,6 +952,7 @@ application_call: application_call_head eval_arglist RPAREN
         {
             $$ = grow_string($1,(char*)")");
         }
+        | error RPAREN
         ;
 
 eval_arglist: implicit_expr_stat
@@ -1039,7 +1060,7 @@ macro_statement: statement
             stringstream ss;
             ss << "catch "<<$2<<" {"<<endl;
             ss<<$4;
-            ss<<"}"<<endl;
+            ss<<"};"<<endl;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($2);
         }
@@ -1056,6 +1077,7 @@ switches: SWITCHES BRA switchlist KET
             last_context = "switches";
             $$ = handleContext((char*)"switches",(char*)"");
        }
+       | error KET
        ;
 
 eswitches: ESWITCHES BRA switchlist KET
@@ -1082,6 +1104,7 @@ switchlist: word SEMICOLON
                 $$ = alloc_string((char*)ss.str().data());
                 destroy_string($1);
           }
+          | error SEMICOLON
           ;
 
 includeslist: 
@@ -1158,6 +1181,7 @@ includeslist:
             destroy_string($8);
             destroy_string($10);
        }
+       | error SEMICOLON
        ;
 
 includedname: 
@@ -1165,23 +1189,23 @@ includedname:
        {
            $$ = $1;
        }
-       | DEFAULT
+/*       | DEFAULT
        {
            $$ = alloc_string((char*) "default");
-       }
+       }*/
        ;
 
 includes: 
        INCLUDES BRA includeslist KET
        {
             stringstream ss;
-            ss << "include = { " << $3 << " }";
+            ss << "include = { " << $3 << " };";
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($3);
        }
        | INCLUDES BRA KET
        {
-            $$ = alloc_string((char*) "include = {}");
+            $$ = alloc_string((char*) "include = {};");
        }
        ;
 
@@ -1199,11 +1223,6 @@ base_expr:
     explicit_expr_stat
     {
         $$ = $1;
-    }
-    | collected_word
-    {
-        $$ = alloc_string(to_expr_analysis($1));
-        destroy_string($1);
     }
     | word
     {
@@ -1320,7 +1339,6 @@ word: WORD
         $$ = alloc_string((char*)"default");
     }
     ;
-collected_word: COLLECTED_WORD { $$ = alloc_string($1); free($1); };
 
 %%
 
@@ -1407,10 +1425,29 @@ int main(int argc, char* argv[] )
     return 0;
 }
 
-void yyerror( string s )
+void
+yyerror(char *s, ...)
 {
-    //fprintf( stderr, "ERROR: %s\n", s);
-    std::cerr << "ERROR : " << s <<std::endl;
-    yyparse();
+  va_list ap;
+  va_start(ap, s);
+
+  if(yylloc.first_line)
+    fprintf(stderr, "%d.%d-%d.%d: error: ", yylloc.first_line, yylloc.first_column,
+        yylloc.last_line, yylloc.last_column);
+  vfprintf(stderr, s, ap);
+  fprintf(stderr, "\n");
+
 }
 
+void
+lyyerror(YYLTYPE t, char *s, ...)
+{
+  va_list ap;
+  va_start(ap, s);
+
+  if(t.first_line)
+    fprintf(stderr, "%d.%d-%d.%d: error: ", t.first_line, t.first_column,
+        t.last_line, t.last_column);
+  vfprintf(stderr, s, ap);
+  fprintf(stderr, "\n");
+}

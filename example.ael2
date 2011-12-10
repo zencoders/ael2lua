@@ -39,6 +39,6 @@
           Playback(demo-thanks);
           Hangup();
      }
-     t => goto #|hangup;
+     t => goto #|1;
      i => Playback(invalid);
  }

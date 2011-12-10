@@ -124,14 +124,14 @@ void handleTimes(char* time, char* day, char* md, char* m, TimeStruct* ts)
 char* handleIf(char* head, char* statement)
 {
     stringstream ss;
-    ss << head << statement << endl << "end";
+    ss << head << statement << endl << "end;";
     return alloc_string((char*)ss.str().data());
 }
 
 char* handleIfElse(char* head, char* statement, char* statement2)
 {
     stringstream ss;
-    ss << head << statement << endl << "else" << endl << statement2 << endl << "end";
+    ss << head << statement << endl << "else" << endl << statement2 << endl << "end;";
     return alloc_string((char*)ss.str().data());
 }
 
@@ -147,7 +147,7 @@ char* handleMacroDef(char* name,char* arglist, char* stats)
     stringstream ss;
     ss<<"function "<<name<<"("<<arglist<<")"<<endl;
     ss<<stats;
-    ss<<"end"<<endl<<endl;
+    ss<<"end;"<<endl<<endl;
     return alloc_string((char*)ss.str().data());
 }
 
@@ -177,7 +177,7 @@ char* handleContext(char* name,char* content)
         {
             ss << hints[i] << endl;
         }
-        ss << "}" << endl << endl;
+        ss << "};" << endl << endl;
     }
     hints.clear();
     return alloc_string((char*)ss.str().data());

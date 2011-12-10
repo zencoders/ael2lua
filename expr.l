@@ -1,5 +1,6 @@
 %option noyywrap
 %option prefix="exp"
+%option yylineno
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +9,16 @@
 char *expp;
 
 extern int expwrap(void);
+
+int expcolumn = 1;
+
+#define explineno yylineno
+#define expleng yyleng
+
+#define YY_USER_ACTION explloc.first_line = explloc.last_line = explineno; \
+    explloc.first_column = expcolumn; explloc.last_column = expcolumn+expleng-1; \
+    expcolumn += expleng;
+
 %}
 
 NUM [0-9]+ 
