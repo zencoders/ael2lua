@@ -317,7 +317,7 @@ element:   extension
         |  word EQ implicit_expr_stat SEMICOLON
         {
             stringstream ss;
-            ss << $1 << "=" << $3 << endl;
+            ss << "channel." << $1 << "=" << $3 << endl;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
             destroy_string($3);
@@ -325,7 +325,7 @@ element:   extension
         |  LOCAL word EQ implicit_expr_stat SEMICOLON
         {
             stringstream ss;
-            ss << $1 << "=" << $3 << endl;
+            ss << "local " << $1 << "=" << $3 << endl;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
             destroy_string($3);
@@ -546,7 +546,7 @@ statement:  BRA statements KET
         | LOCAL word EQ implicit_expr_stat SEMICOLON
         {
             stringstream ss;
-            ss << "local "<<$2<<" = "<<$4<<endl;
+            ss << "local " << $2 << " = "<<$4<<endl;
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($2);
             destroy_string($4);
@@ -560,7 +560,7 @@ statement:  BRA statements KET
             else
             {
                 stringstream ss;
-                ss << "app.goto"<<$2<<endl;
+                ss << "return app.goto"<<$2<<endl;
                 $$ = alloc_string((char*)ss.str().data());
                 destroy_string($2);
             }
