@@ -81,19 +81,19 @@ extern "C"
 %error-verbose
 %locations
 
-%token EQ
+%right EQ
 %token RPAREN
 %token LPAREN
-%token KET
-%token BRA
-%token ASSIGN
+%right KET
+%left BRA
+%right ASSIGN
 %token SEMICOLON
-%token COMMA
-%token ARROW
-%token PIPE
-%token COLON
-%token AT
-%token AND
+%left COMMA
+%right ARROW
+%left PIPE
+%left COLON
+%left AT
+%left AND
 %token IF
 %token ELSE
 %token WHILE
@@ -125,20 +125,20 @@ extern "C"
 %token VARNAME
 %token EXPRINIT
 %token RSBRA
-%token NOTEQ
-%token EQUAL
-%token GT
-%token LT
-%token GTEQ
-%token LTEQ
-%token MULT
-%token DIV
-%token MOD
-%token PLUS
-%token MINUS
-%token LOGNOT
-%token LIKEOP
-%token CONDQUEST
+%left NOTEQ
+%left EQUAL
+%left GT
+%left LT
+%left GTEQ
+%left LTEQ
+%left MULT
+%left DIV
+%left MOD
+%left PLUS
+%left MINUS
+%right LOGNOT
+%left LIKEOP
+%right CONDQUEST
 
 %token END 0 "end of file"
 

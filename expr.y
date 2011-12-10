@@ -50,7 +50,7 @@ int yywrap() { return 1; }
 %token RPAREN
 %token LPAREN
 %right KET
-%right BRA
+%left BRA
 %right ASSIGN
 %token SEMICOLON
 %left COMMA
