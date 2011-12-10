@@ -32,7 +32,7 @@ int explex(void)
 }
 
 int expparse(void);
-void experror(char*,...);
+void experror(const char*,...);
 FILE* expin;
 FILE* expout;
 stringstream output;
@@ -46,37 +46,37 @@ int yywrap() { return 1; }
 %error-verbose
 %locations
 
-%token EQ
+%right EQ
 %token RPAREN
 %token LPAREN
-%token KET
-%token BRA
-%token ASSIGN
+%right KET
+%right BRA
+%right ASSIGN
 %token SEMICOLON
-%token COMMA
-%token ARROW
-%token PIPE
-%token COLON
-%token AT
-%token AND
+%left COMMA
+%right ARROW
+%left PIPE
+%left COLON
+%left AT
+%left AND
 %token WORD
 %token COLLECTED_WORD
 %token EXPRINIT
 %token RSBRA
-%token NOTEQ
-%token EQUAL
-%token GT
-%token LT
-%token GTEQ
-%token LTEQ
-%token PLUS
-%token MINUS
-%token MULT
-%token DIV
-%token MOD
-%token LOGNOT
-%token LIKEOP
-%token CONDQUEST
+%left NOTEQ
+%left EQUAL
+%left GT
+%left LT
+%left GTEQ
+%left LTEQ
+%left MULT
+%left DIV
+%left MOD
+%left PLUS
+%left MINUS
+%right LOGNOT
+%left LIKEOP
+%right CONDQUEST
 %token NUM
 %token VAR
 %token NOVAR_WORD
@@ -257,7 +257,7 @@ string analyze_expression(const string& s)
 }
 
 void
-experror(char *s, ...)
+experror(const char *s, ...)
 {
   va_list ap;
   va_start(ap, s);
@@ -270,15 +270,3 @@ experror(char *s, ...)
 
 }
 
-void
-lexperror(YYLTYPE t, char *s, ...)
-{
-  va_list ap;
-  va_start(ap, s);
-
-  if(t.first_line)
-    fprintf(stderr, "%d.%d-%d.%d: error: ", t.first_line, t.first_column,
-        t.last_line, t.last_column);
-  vfprintf(stderr, s, ap);
-  fprintf(stderr, "\n");
-}

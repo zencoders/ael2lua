@@ -66,7 +66,8 @@ int yylex(void)
 extern "C"
 {
     int yyparse(void);
-    void yyerror(char*, ...);
+    void yyerror(const char*, ...);
+    void yywarn(const char*, ...);
     FILE* yyin;
     FILE* yyout;
     ostream* out_file;
@@ -130,11 +131,11 @@ extern "C"
 %token LT
 %token GTEQ
 %token LTEQ
-%token PLUS
-%token MINUS
 %token MULT
 %token DIV
 %token MOD
+%token PLUS
+%token MINUS
 %token LOGNOT
 %token LIKEOP
 %token CONDQUEST
@@ -187,15 +188,27 @@ context:
     }
     |   ABSTRACT CONTEXT word BRA elements KET
     {
+        yywarn("This context is marked to be abstract. Your LUA context will lose this property!");
+        last_context = $3;
+        $$ = handleContext($3,$5);
     }
     |   ABSTRACT CONTEXT word BRA KET
     {
+        yywarn("This context is marked to be abstract. Your LUA context will lose this property!");
+        last_context = $3;
+        $$ = handleContext($3,(char*)"");
     }
     |   ABSTRACT CONTEXT DEFAULT BRA elements KET
     {
+        yywarn("This context is marked to be abstract. Your LUA context will lose this property!");
+        last_context = "default";
+        $$ = handleContext((char*)"default",$5);
     }
     |   ABSTRACT CONTEXT DEFAULT BRA KET
     {
+        yywarn("This context is marked to be abstract. Your LUA context will lose this property!");
+        last_context = "default";
+        $$ = handleContext((char*)"default",(char*)"");
     }
     | error KET
     ;
@@ -786,6 +799,7 @@ target: word
             }
             else
             {
+                yywarn("goto a label on a different extension is not supported");
                 ss << "-- (ael2lua warning) goto a label on a different extension is not supported (original AEL2 target : ";
                 ss << $1 << "|" << $3<<")";
             }
@@ -827,6 +841,7 @@ target: word
             }
             else
             {
+                yywarn("goto a label on a different extension is not supported");
                 ss << "-- (ael2lua warning) goto a label on a different extension is not supported (original AEL2 target : ";
                 ss << $1 << "|" << $3<<")";
             }
@@ -1426,28 +1441,25 @@ int main(int argc, char* argv[] )
 }
 
 void
-yyerror(char *s, ...)
+yyerror(const char *s, ...)
 {
-  va_list ap;
-  va_start(ap, s);
+    va_list ap;
+    va_start(ap, s);
 
-  if(yylloc.first_line)
-    fprintf(stderr, "%d.%d-%d.%d: error: ", yylloc.first_line, yylloc.first_column,
-        yylloc.last_line, yylloc.last_column);
-  vfprintf(stderr, s, ap);
-  fprintf(stderr, "\n");
-
+    if(yylloc.first_line)
+        fprintf(stderr, "%d.%d-%d.%d: error: ", yylloc.first_line, yylloc.first_column, yylloc.last_line, yylloc.last_column);
+    vfprintf(stderr, s, ap);
+    fprintf(stderr, "\n");
 }
 
 void
-lyyerror(YYLTYPE t, char *s, ...)
+yywarn(const char *s, ...)
 {
-  va_list ap;
-  va_start(ap, s);
+    va_list ap;
+    va_start(ap, s);
 
-  if(t.first_line)
-    fprintf(stderr, "%d.%d-%d.%d: error: ", t.first_line, t.first_column,
-        t.last_line, t.last_column);
-  vfprintf(stderr, s, ap);
-  fprintf(stderr, "\n");
+    if(yylloc.first_line)
+        fprintf(stderr, "%d.%d-%d.%d: warning: ", yylloc.first_line, yylloc.first_column,yylloc.last_line, yylloc.last_column);
+    vfprintf(stderr, s, ap);
+    fprintf(stderr, "\n");
 }
