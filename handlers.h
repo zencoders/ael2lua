@@ -84,7 +84,6 @@ char* handleIfElse(char* head, char* statement, char* statement2);
  * Method used to build the included name for a list of inclusions. This method works
  * also to translate temporal inclusions.
  * @param name The name of the file to include
- * @param string containing the obtained new include name equivalent
 **/
 char* handleIncludedName(char* name);
 

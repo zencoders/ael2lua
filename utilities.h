@@ -5,21 +5,21 @@
 
 /**
  * Method used to remove spaces preceding the string
- * @param the string to trim
- * @return the newwly created string
+ * @param s string to trim
+ * @return the newly created string
 **/
 std::string& ltrim(std::string &s);
 
 /**
  * Method used to remove spaces following the string
- * @param the string to trim
+ * @param s string to trim
  * @return the newwly created string
 **/
 std::string& rtrim(std::string& s);
 
 /**
  * Method used to remove spaces following and preceding the string
- * @param the string to trim
+ * @param s string to trim
  * @return the newwly created string
 **/
 std::string& trim(std::string& s);

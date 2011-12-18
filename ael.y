@@ -122,7 +122,6 @@ extern "C"
 %token CONTINUE
 %token CATCH
 %token WORD
-%token VARNAME
 %token EXPRINIT
 %token RSBRA
 %left NOTEQ
@@ -332,7 +331,7 @@ element:   extension
         }
         |  SEMICOLON 
         { 
-            $$ = alloc_string((char*)";"); 
+            $$ = alloc_string((char*)""); 
         }
         | error SEMICOLON
         ;
@@ -350,7 +349,22 @@ ignorepat: IGNOREPAT ARROW word SEMICOLON
 extension: word ARROW statement
         {
             stringstream ss;
-            ss <<"[\""<<$1<<"\"] = "<<$3;            
+            string w($1);
+            if(w == "s" || w == "t" || w == "i" || w == "h" || w == "a" || w == "i" || w == "o" || w == "T")
+            {
+                if(split(last_block,'\n').size() == 1 && last_block[last_block.size() - 2] == ')')
+                {
+                    ss << $1 << " = " << last_block.substr(0,last_block.size() - 3) << ";" << endl;
+                }
+                else
+                {
+                    ss << $1 << " = "<<$3;
+                }
+            }
+            else
+            {
+                ss <<"[\""<<$1<<"\"] = "<<$3;
+            }
             $$ = alloc_string((char*)ss.str().data());
             destroy_string($1);
             destroy_string($3);
@@ -779,6 +793,8 @@ statement:  BRA statements KET
             destroy_string($4);
         }
         | SEMICOLON
+        {
+        }
         | error SEMICOLON
         | error KET
        ;
@@ -977,7 +993,7 @@ eval_arglist: implicit_expr_stat
             | eval_arglist COMMA implicit_expr_stat
             {
                 stringstream ss;
-                ss << "," << $3;            
+                ss << "," << $3;
                 $$ = grow_string($1,(char*)ss.str().data());
                 destroy_string($1);
             }
@@ -1344,10 +1360,6 @@ arith_unary_op : MINUS { $$ = alloc_string((char*) "-"); };
 word: WORD 
     { 
         $$ = alloc_string($1); free($1); 
-    }
-    | VARNAME
-    {
-        $$ = extract_variable($1); free($1);
     }
     | DEFAULT
     {

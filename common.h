@@ -36,7 +36,7 @@ char* grow_string(char* head, char* tail);
 
 /**
  * Method used to extract the variable's name from the variable in string passed
- * @param c The string containing the variable
+ * @param s The string containing the variable
  * @return the variable's name extracted
 **/
 char* extract_variable(char* s);
@@ -52,8 +52,8 @@ char* extract_binary_expr(char* a, char* b, char* c);
 
 /**
  * Method used to extract a unary expression from components
- * @param b The symbol
- * @param c The right part of the expression
+ * @param a The symbol
+ * @param b The right part of the expression
  * @return The newly created exception
 **/
 char* extract_unary_expr(char* a, char* b);

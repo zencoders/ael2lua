@@ -51,3 +51,20 @@ Edit this file but do not delete our logo and remember to keep reference to our 
 For further information:
 ZenCoders Website : www.zencoders.org
 ZenCoders' Redmine : redmine.zencoders.org
+
+Authors : Dario Mazza && Sebastiano Merlino
+
+Dependencies: flex, bison (no other c++ dependencies)
+Building system: There is a practical Makefile that travels with this code. In order to make all the code just type 'make'.
+
+The generator is called 'ael'; it can be run calling './ael input_filename [output_filename]'. If you don't pass the output_filename
+                                the translator will print the output to stdout.
+
+In order to try the generated code, you must install lua interpreter and liblua0 development packages. Doing so, you can compile your asterisk
+installation with LUA scripting support enabled.
+
+When you have an asterisk installation with lua support enabled you can easily load your translated files renaming them to 'extensions.lua' and
+putting them into asterisk main directory '${PREFIX}/etc/asterisk'.
+
+To try your dialplans with asterisk, just download a softphone and connect it with your running asterisk instance and then, call the specified context
+and try your dialplans.

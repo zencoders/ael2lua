@@ -56,7 +56,7 @@ char* extract_variable(char* s)
 {
     std::string var(s);
     char* to_ret;
-    if(var.size() > 3)
+    if(var.size() >= 3)
     {
         if(s[0] == '$' && s[1] == '{')
         {

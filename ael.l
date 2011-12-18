@@ -20,7 +20,6 @@ int yycolumn = 1;
 
 COMMENT \/\/[^\n]*$
 WORD [-a-zA-Z0-9"_/.\<\>\*\+!$#\[\]][-a-zA-Z0-9"_/.!\*\+\<\>\{\}$#\[\]]*
-VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 
 %%
 =           { /*printf("EQ\n");*/ return EQ; }
@@ -79,14 +78,6 @@ VARNAME $\{[-a-zA-Z][-a-zA-Z0-9]*\}
 "!"         { /*printf("LOGNOT\n");*/return LOGNOT; }
 "=~"	    { /*printf("LIKEOP\n");*/return LIKEOP; }
 "?"	        { /*printf("CONDQUEST\n");*/return CONDQUEST; }
-
-{VARNAME}   {
-	    /*printf("VARNAME (%s)\n",yytext);*/
-	    p = (char*)calloc(strlen(yytext)+1,sizeof(char));
-	    strcpy(p,yytext);
-	    yylval = (YYSTYPE)p;
-	    return VARNAME;
-	    }
 
 {WORD}      { 
         /*printf("WORD (%s)\n",yytext);*/

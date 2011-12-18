@@ -147,7 +147,7 @@ char* handleMacroDef(char* name,char* arglist, char* stats)
     stringstream ss;
     ss<<"function "<<name<<"("<<arglist<<")"<<endl;
     ss<<stats;
-    ss<<"end;"<<endl<<endl;
+    ss<<"end"<<endl<<endl;
     return alloc_string((char*)ss.str().data());
 }
 
